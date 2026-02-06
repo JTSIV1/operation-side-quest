@@ -2,6 +2,10 @@
 
 ## Setup
 
+1. Create a `.env` file in the root directory in the format of `.env.example` and fill in your API keys.
+
+2. Run the following commands in the root directory:
+
 ```bash
 python -m venv venv
 
