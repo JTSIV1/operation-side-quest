@@ -319,3 +319,38 @@ def remove_route_participant(route_id, user_id):
         return str(e)
     finally:
         conn.close()
+
+def get_user(user_id):
+    """Returns user details by ID."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, email, username, first_name, last_name FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return {"id": row[0], "email": row[1], "username": row[2], "first_name": row[3], "last_name": row[4]}
+    return None
+
+def update_user(user_id, username, first_name, last_name):
+    """Updates user profile. Returns status string."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    try:
+        # Check if username is taken by another user
+        cursor.execute("SELECT id FROM users WHERE username = ? AND id != ?", (username, user_id))
+        if cursor.fetchone():
+            return "Username already taken"
+        
+        cursor.execute("""
+            UPDATE users 
+            SET username = ?, first_name = ?, last_name = ?
+            WHERE id = ?
+        """, (username, first_name, last_name, user_id))
+        conn.commit()
+        return "Success"
+    except sqlite3.IntegrityError:
+        return "Username already taken"
+    except Exception as e:
+        return str(e)
+    finally:
+        conn.close()

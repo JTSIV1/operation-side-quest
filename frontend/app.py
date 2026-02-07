@@ -22,6 +22,10 @@ def friends():
 def saved_routes():
     return render_template("saved_routes.html")
 
+@app.route("/account")
+def account():
+    return render_template("account.html")
+  
 @app.route("/leaderboard")
 def leaderboard():
     return render_template("leaderboard.html")
