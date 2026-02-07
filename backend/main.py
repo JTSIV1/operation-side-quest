@@ -61,6 +61,22 @@ class SaveRouteRequest(BaseModel):
     user_id: str
     route_data: dict
 
+class DeleteRouteRequest(BaseModel):
+    user_id: str
+    route_id: str
+
+class UpdateRouteStatusRequest(BaseModel):
+    route_id: str
+    completed: bool
+
+class ShareRouteRequest(BaseModel):
+    route_id: str
+    friend_email: str
+
+class RemoveRouteParticipantRequest(BaseModel):
+    route_id: str
+    user_id: str
+
 
 @app.post("/signup")
 def signup(req: SignupRequest):
@@ -158,6 +174,41 @@ def get_saved_routes(user_id: str):
             except:
                 r["route_data"] = {}
     return routes
+
+@app.post("/delete-route")
+def delete_route_endpoint(req: DeleteRouteRequest):
+    res = db.delete_route(req.route_id, req.user_id)
+    if res == "Success":
+        return {"message": "Route deleted"}
+    else:
+        raise HTTPException(status_code=500, detail=res)
+
+@app.post("/update-route-status")
+def update_route_status(req: UpdateRouteStatusRequest):
+    db.toggle_route_completion(req.route_id, req.completed)
+    return {"message": "Status updated"}
+
+@app.post("/share-route")
+def share_route(req: ShareRouteRequest):
+    res = db.add_route_participant(req.route_id, req.friend_email)
+    if res == "Success":
+        return {"message": "Friend added to route"}
+    elif res == "User not found":
+        raise HTTPException(status_code=404, detail="User not found")
+    else:
+        raise HTTPException(status_code=400, detail=res)
+
+@app.get("/route-participants/{route_id}")
+def get_route_participants(route_id: str):
+    return db.get_route_participants(route_id)
+
+@app.post("/remove-route-participant")
+def remove_route_participant(req: RemoveRouteParticipantRequest):
+    res = db.remove_route_participant(req.route_id, req.user_id)
+    if res == "Success":
+        return {"message": "Participant removed"}
+    else:
+        raise HTTPException(status_code=500, detail=res)
 
 @app.post("/add-friend")
 def add_friend(req: AddFriendRequest):

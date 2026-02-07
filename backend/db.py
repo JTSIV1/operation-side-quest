@@ -1,5 +1,6 @@
 import sqlite3
 import uuid
+from datetime import datetime
 
 DB_FILE = "users.db"
 
@@ -33,6 +34,15 @@ def init_db():
             time_completed TEXT,
             route_data TEXT,
             FOREIGN KEY(owner_id) REFERENCES users(id)
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS route_participants (
+            route_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            PRIMARY KEY (route_id, user_id),
+            FOREIGN KEY(route_id) REFERENCES routes(route_id),
+            FOREIGN KEY(user_id) REFERENCES users(id)
         )
     """)
     conn.commit()
@@ -169,11 +179,13 @@ def get_user_routes(user_id):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT route_id, num_stops, completed, time_completed, route_data
-        FROM routes
-        WHERE owner_id = ?
-        ORDER BY rowid DESC
-    """, (user_id,))
+        SELECT DISTINCT r.route_id, r.num_stops, r.completed, r.time_completed, r.route_data, r.owner_id, u.first_name, u.last_name
+        FROM routes r
+        JOIN users u ON r.owner_id = u.id
+        LEFT JOIN route_participants rp ON r.route_id = rp.route_id
+        WHERE r.owner_id = ? OR rp.user_id = ?
+        ORDER BY r.rowid DESC
+    """, (user_id, user_id))
     rows = cursor.fetchall()
     conn.close()
     
@@ -184,9 +196,67 @@ def get_user_routes(user_id):
             "num_stops": r[1],
             "completed": bool(r[2]),
             "time_completed": r[3],
-            "route_data": r[4]
+            "route_data": r[4],
+            "is_owner": (r[5] == user_id),
+            "owner_name": f"{r[6]} {r[7]}"
         })
     return routes
+
+def delete_route(route_id, user_id):
+    """Deletes a route if owner, or removes self if participant."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    try:
+        # Check ownership
+        cursor.execute("SELECT owner_id FROM routes WHERE route_id = ?", (route_id,))
+        row = cursor.fetchone()
+        if not row:
+            return "Route not found"
+        
+        owner_id = row[0]
+        if owner_id == user_id:
+            # Delete everything
+            cursor.execute("DELETE FROM route_participants WHERE route_id = ?", (route_id,))
+            cursor.execute("DELETE FROM routes WHERE route_id = ?", (route_id,))
+        else:
+            # Just remove participant
+            cursor.execute("DELETE FROM route_participants WHERE route_id = ? AND user_id = ?", (route_id, user_id))
+        
+        conn.commit()
+        return "Success"
+    except Exception as e:
+        return str(e)
+    finally:
+        conn.close()
+
+def toggle_route_completion(route_id, completed):
+    """Updates the completion status of a route."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    time_str = datetime.now().isoformat() if completed else None
+    cursor.execute("UPDATE routes SET completed = ?, time_completed = ? WHERE route_id = ?", (1 if completed else 0, time_str, route_id))
+    conn.commit()
+    conn.close()
+
+def add_route_participant(route_id, friend_email):
+    """Adds a user to a route by email."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM users WHERE email = ?", (friend_email,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return "User not found"
+    
+    friend_id = row[0]
+    try:
+        cursor.execute("INSERT INTO route_participants (route_id, user_id) VALUES (?, ?)", (route_id, friend_id))
+        conn.commit()
+        return "Success"
+    except sqlite3.IntegrityError:
+        return "User already added"
+    finally:
+        conn.close()
 
 def get_pending_requests(user_id):
     """Returns users whom user_id added, but they haven't added user_id back."""
@@ -200,3 +270,34 @@ def get_pending_requests(user_id):
         )
     """
     return _get_users_from_query(query, (user_id, user_id))
+
+def get_route_participants(route_id):
+    """Returns a list of users participating in a route."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    query = """
+        SELECT u.id, u.email, u.username, u.first_name, u.last_name
+        FROM users u
+        JOIN route_participants rp ON u.id = rp.user_id
+        WHERE rp.route_id = ?
+    """
+    cursor.execute(query, (route_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [
+        {"id": r[0], "email": r[1], "username": r[2], "first_name": r[3], "last_name": r[4]}
+        for r in rows
+    ]
+
+def remove_route_participant(route_id, user_id):
+    """Removes a specific user from a route."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM route_participants WHERE route_id = ? AND user_id = ?", (route_id, user_id))
+        conn.commit()
+        return "Success"
+    except Exception as e:
+        return str(e)
+    finally:
+        conn.close()
