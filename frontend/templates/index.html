@@ -238,6 +238,11 @@
     </style>
 </head>
 <body>
+<script>
+    if (!localStorage.getItem('user_id')) {
+        window.location.href = "/login";
+    }
+</script>
 
 <div class="container">
     <div class="sidebar">
@@ -351,6 +356,7 @@
             </div>
             <button class="btn btn-submit" id="btn-generate">Generate Route</button>
         </div>
+        <button id="btn-signout" class="btn" style="margin-top: auto; flex: 0 auto; background-color: #cf6679; border-color: #b00020; color: white;">Sign Out</button>
     </div>
     <div class="map-wrapper">
         <div id="map"></div>
@@ -590,6 +596,12 @@
             // window.location.href = '/result'; // Forward to new page
         })
         .catch(err => console.error('Error:', err));
+    });
+
+    // Handle Sign Out
+    document.getElementById('btn-signout').addEventListener('click', function() {
+        localStorage.removeItem('user_id');
+        window.location.href = "/login";
     });
 </script>
 </body>
