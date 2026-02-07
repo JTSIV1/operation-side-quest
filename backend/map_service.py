@@ -3,6 +3,7 @@ import logging
 import requests
 from typing import List, Optional
 from dotenv import load_dotenv, find_dotenv
+import math
 
 from inputparams import QuestRequest
 
@@ -62,17 +63,33 @@ def get_stop_count(time_minutes: int, max_stops: Optional[int]) -> int:
 
 
 # -------------------------
+# Category Mappings
+# -------------------------
+CATEGORY_MAPPINGS = {
+    "art": "art_gallery|museum",
+    "history": "museum|historical_landmark",
+    "nature": "park|garden",
+    "shopping": "clothing_store",
+    "cafes": "cafe",
+    "desserts": "bakery|ice_cream_shop",
+    "nightlife": "bar|night_club",
+}
+
+# -------------------------
 # Fetch places from Google API
 # -------------------------
 def fetch_places(lat: float, lng: float, radius: int, category: str) -> List[dict]:
     """
     Uses Google Nearby Search API with default prominence sorting
     """
+    # Map generic terms to specific Google keywords to avoid "art supply stores"
+    search_keyword = CATEGORY_MAPPINGS.get(category.lower(), category)
+
     url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
     params = {
         "location": f"{lat},{lng}",
         "radius": radius,     # required for prominence
-        "keyword": category,
+        "keyword": search_keyword,
         "key": GOOGLE_KEY
     }
 
@@ -85,53 +102,72 @@ def fetch_places(lat: float, lng: float, radius: int, category: str) -> List[dic
     return data.get("results", [])
 
 
-import math # <--- ADD THIS at the top of your file
-
 def generate_places(request: QuestRequest) -> List[dict]:
     radius = max(int(request.radius * 1000), 500)
     top_k = request.popularity
-    all_places = []
-
-    for cat in request.categories:
-        results = fetch_places(request.latitude, request.longitude, radius, cat)
-        all_places.extend(results)
-
-    seen = set()
-    unique = []
-    for p in all_places:
-        pid = p.get("place_id")
-        if pid and pid not in seen:
-            seen.add(pid)
-            unique.append(p)
-            
-    logger.info(f"Found {len(unique)} unique places before filtering.")
-
-    # --- UPDATED FILTERING ---
-    # We add a "floor" for reviews (e.g., must have at least 5 reviews) 
-    # to stop 1-review wonders from appearing.
-    filtered = [
-        p for p in unique
-        if p.get("price_level", 0) <= request.budget
-        and p.get("user_ratings_total", 0) >= 5  # <--- ADD THIS
-    ]
     
-    logger.info(f"Places remaining after filters: {len(filtered)}")
-
-    # --- DELETE THE OLD SORTING LINE ---
-    # selected = sorted(filtered, key=lambda x: x.get("rating", 0), reverse=True)[:pool_size]
-
-    # --- ADD THIS WEIGHTED SORTING ---
+    # Helper for scoring
     def get_popularity_score(place):
         rating = place.get("rating", 0)
         reviews = place.get("user_ratings_total", 0)
-        # Weighting formula: Rating * Log10(Reviews)
-        # The +1 ensures we don't multiply by zero.
         return rating * math.log10(reviews + 1)
 
+    # 1. Fetch, Filter, and Score by Category
+    places_by_category = {}
+    for cat in request.categories:
+        raw_results = fetch_places(request.latitude, request.longitude, radius, cat)
+        
+        filtered_cat = []
+        for p in raw_results:
+            # Filter: Budget & Min Reviews
+            if p.get("price_level", 0) <= request.budget and p.get("user_ratings_total", 0) >= 5:
+                # Calculate score immediately for sorting
+                p["_score"] = get_popularity_score(p)
+                filtered_cat.append(p)
+        
+        # Sort this category by score descending
+        filtered_cat.sort(key=lambda x: x["_score"], reverse=True)
+        places_by_category[cat] = filtered_cat
+
+    # 2. Balanced Selection (Round-Robin / Quota)
     pool_size = max(top_k * 4, 20)
-    selected = sorted(filtered, key=get_popularity_score, reverse=True)[:pool_size]
+    num_cats = len(request.categories)
+    if num_cats == 0:
+        return []
+
+    target_per_cat = math.ceil(pool_size / num_cats)
     
-    logger.info(f"Selected {len(selected)} places using weighted popularity.")
+    selected_places = []
+    seen_ids = set()
+
+    # Pass 1: Fill quotas for each category
+    for cat in request.categories:
+        candidates = places_by_category.get(cat, [])
+        count = 0
+        for p in candidates:
+            if count >= target_per_cat:
+                break
+            pid = p.get("place_id")
+            if pid and pid not in seen_ids:
+                seen_ids.add(pid)
+                selected_places.append(p)
+                count += 1
+    
+    # Pass 2: If we haven't met pool_size, fill with the highest scoring remaining places
+    if len(selected_places) < pool_size:
+        remaining = []
+        for cat in request.categories:
+            for p in places_by_category.get(cat, []):
+                pid = p.get("place_id")
+                if pid and pid not in seen_ids:
+                    remaining.append(p)
+        
+        # Sort remaining globally by score
+        remaining.sort(key=lambda x: x["_score"], reverse=True)
+        needed = pool_size - len(selected_places)
+        selected_places.extend(remaining[:needed])
+
+    logger.info(f"Selected {len(selected_places)} places with balanced categories.")
 
     return [
         {
@@ -139,8 +175,8 @@ def generate_places(request: QuestRequest) -> List[dict]:
             "lat": p["geometry"]["location"]["lat"],
             "lng": p["geometry"]["location"]["lng"],
             "rating": p.get("rating", 0),
-            "user_ratings_total": p.get("user_ratings_total", 0), # <--- ADD THIS for frontend visibility
+            "user_ratings_total": p.get("user_ratings_total", 0),
             "address": p.get("vicinity", "")
         }
-        for p in selected
+        for p in selected_places
     ]

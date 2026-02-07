@@ -94,7 +94,6 @@ def optimize_for_duration(
     and call Mapbox optimized-trips for each to get duration. Return the first
     ordering that matches the target within tolerance, or the best-effort closest.
     """
-    import random
 
     target_seconds = target_minutes * 60
     best = None
@@ -107,11 +106,30 @@ def optimize_for_duration(
     # Try decreasing subset sizes to maximize places visited
     # Start from max possible (11 or n) down to 1
     for size in range(min(11, n), 0, -1):
-        for _ in range(attempts_per_size):
-            subset = random.sample(candidates, size)
+        
+        # --- CLUSTERING STRATEGY ---
+        # Instead of random sampling, we pick the top rated places as "seeds"
+        # and find their closest neighbors. This ensures we find "clusters" 
+        # of places near each other (e.g. on the same street).
+        seeds = candidates[:attempts_per_size]
+        tested_signatures = set()
+
+        for seed in seeds:
+            # Sort all candidates by distance to the current seed
+            # (Simple Euclidean distance on lat/lng is sufficient for local sorting)
+            cluster = sorted(
+                candidates, 
+                key=lambda c: (c['lat'] - seed['lat'])**2 + (c['lng'] - seed['lng'])**2
+            )[:size]
+
+            # Avoid checking the exact same group twice
+            signature = tuple(sorted(p['name'] for p in cluster))
+            if signature in tested_signatures:
+                continue
+            tested_signatures.add(signature)
 
             try:
-                ordered, duration = get_mapbox_route(user_location, subset, mode=mode)
+                ordered, duration = get_mapbox_route(user_location, cluster, mode=mode)
             except Exception as e:
                 logger.error(f"Error optimizing subset of size {size}: {e}")
                 # If mapbox call fails, skip this subset
