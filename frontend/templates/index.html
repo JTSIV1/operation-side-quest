@@ -235,6 +235,41 @@
         .arrow-icon {
             transition: transform 0.3s ease;
         }
+        /* Loading Overlay */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .loading-box {
+            background-color: #3A4547;
+            padding: 30px;
+            border-radius: 10px;
+            border: 1px solid #666;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #4CAF50;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -243,6 +278,14 @@
         window.location.href = "/login";
     }
 </script>
+
+<div id="loading-overlay">
+    <div class="loading-box">
+        <div class="spinner"></div>
+        <div style="font-size: 1.2rem; font-weight: bold;">Generating Quest...</div>
+        <div style="color: #aaa; margin-top: 5px;">Please wait while we find the best route.</div>
+    </div>
+</div>
 
 <div class="container">
     <div class="sidebar">
@@ -560,6 +603,9 @@
 
     // Handle Generate Route
     document.getElementById('btn-generate').addEventListener('click', function() {
+        // Show loading overlay
+        document.getElementById('loading-overlay').style.display = 'flex';
+
         // Collect Categories
         const categories = [];
         document.querySelectorAll('.square-toggle:checked').forEach(cb => {
@@ -597,7 +643,11 @@
             localStorage.setItem('quest_results', JSON.stringify(data));
             window.location.href = '/results';
         })
-        .catch(err => console.error('Error:', err));
+        .catch(err => {
+            console.error('Error:', err);
+            document.getElementById('loading-overlay').style.display = 'none';
+            alert('An error occurred while generating the route.');
+        });
     });
 
     // Handle Sign Out

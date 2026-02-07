@@ -149,14 +149,7 @@
             const markers = [];
 
             if (places.length === 0) {
-                // listContainer.innerHTML = '<p>No places found matching your criteria.</p>';
-                places = [
-                    { name: "Cathedral of Learning", lat: 40.4443, lng: -79.9532, address: "4200 Fifth Ave, Pittsburgh, PA 15260", rating: 4.8 },
-                    { name: "Phipps Conservatory", lat: 40.4392, lng: -79.9474, address: "1 Schenley Drive, Pittsburgh, PA 15213", rating: 4.9 },
-                    { name: "Duquesne Incline", lat: 40.4397, lng: -80.0181, address: "1197 W Carson St, Pittsburgh, PA 15219", rating: 4.7 },
-                    { name: "Point State Park", lat: 40.4417, lng: -80.0138, address: "601 Commonwealth Pl, Pittsburgh, PA 15222", rating: 4.8 },
-                    { name: "Andy Warhol Museum", lat: 40.4484, lng: -80.0025, address: "117 Sandusky St, Pittsburgh, PA 15212", rating: 4.6 }
-                ];
+                listContainer.innerHTML = '<p>No places found matching your criteria.</p>';
             }
 
             places.forEach((place, index) => {

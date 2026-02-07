@@ -1,10 +1,18 @@
 import os
+import logging
 import requests
 from typing import List, Dict, Tuple
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
+import sys
 
-load_dotenv()
+load_dotenv(find_dotenv())
 MAPBOX_KEY = os.getenv("MAPBOX_KEY")
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+if not MAPBOX_KEY:
+    logger.error("MAPBOX_KEY is not set. Please check that your .env file exists and contains MAPBOX_KEY.")
 
 
 def get_mapbox_route(
@@ -22,17 +30,21 @@ def get_mapbox_route(
     # Validate mode
     if mode not in ["walking", "driving"]:
         raise ValueError("Transport mode must be 'walking' or 'driving'")
+    
+    if not places:
+        return None, 0
 
     # Build coordinates string: lng,lat;lng,lat;...
-    coords = [f"{user_location[1]},{user_location[0]}"]  # start point
+    coords = []
+    coords.append(f"{user_location[1]},{user_location[0]}")
     coords += [f"{p['lng']},{p['lat']}" for p in places]
     coord_str = ";".join(coords)
 
     url = f"https://api.mapbox.com/optimized-trips/v1/mapbox/{mode}/{coord_str}"
     params = {
         "access_token": MAPBOX_KEY,
-        "source": "first",      # start at user_location
-        "roundtrip": "false",   # don't return to start
+        "source": "first",
+        "roundtrip": "true",
         "geometries": "geojson" # useful for map visualization
     }
 
@@ -41,15 +53,26 @@ def get_mapbox_route(
 
     # Fallback if API fails
     if "trips" not in data or not data["trips"]:
-        return places, 0
+        logger.error(f"Mapbox API failed or returned no trips. Data: {data}")
+        return None, 0
 
     trip = data["trips"][0]
 
-    # Extract waypoint order (0 is user location)
-    waypoints_order = [wp["waypoint_index"] for wp in trip["waypoints"]]
-
-    # Map to places, skip first index (user location)
-    ordered_places = [places[i-1] for i in waypoints_order if i != 0]
+    # Extract waypoint order from the root 'waypoints' key
+    # The 'waypoints' array in response corresponds to input order.
+    # Each waypoint has a 'waypoint_index' indicating its position in the trip.
+    waypoints = data.get("waypoints", [])
+    
+    # Sort input indices by their position in the trip
+    # enumerate gives (input_index, waypoint_data)
+    sorted_inputs = sorted(enumerate(waypoints), key=lambda x: x[1]["waypoint_index"])
+    
+    # Extract places in order. Index 0 is user location (skip it).
+    ordered_places = []
+    for input_idx, _wp in sorted_inputs:
+        if input_idx == 0:
+            continue
+        ordered_places.append(places[input_idx - 1])
 
     # Return ordering and duration (seconds)
     return ordered_places, int(trip.get("duration", 0))
@@ -60,7 +83,7 @@ def optimize_for_duration(
     candidates: List[Dict],
     target_minutes: int,
     mode: str = "walking",
-    attempts_per_size: int = 8,
+    attempts_per_size: int = 5,
     tolerance: float = 0.15,
 ):
     """
@@ -81,15 +104,20 @@ def optimize_for_duration(
     if n == 0:
         return [], 0
 
-    # Try increasing subset sizes
-    for size in range(1, n + 1):
+    # Try decreasing subset sizes to maximize places visited
+    # Start from max possible (11 or n) down to 1
+    for size in range(min(11, n), 0, -1):
         for _ in range(attempts_per_size):
             subset = random.sample(candidates, size)
 
             try:
                 ordered, duration = get_mapbox_route(user_location, subset, mode=mode)
-            except Exception:
+            except Exception as e:
+                logger.error(f"Error optimizing subset of size {size}: {e}")
                 # If mapbox call fails, skip this subset
+                continue
+
+            if ordered is None:
                 continue
 
             diff = abs(duration - target_seconds)
@@ -97,8 +125,9 @@ def optimize_for_duration(
                 best = (ordered, duration)
                 best_diff = diff
 
-            if diff <= tolerance * target_seconds:
-                # Good enough
+            # If we are under the time limit, this is the best we can do in terms of count
+            # (since we are iterating from largest count downwards)
+            if duration <= target_seconds:
                 return ordered, duration
 
     # Return best effort
