@@ -79,14 +79,15 @@ def fetch_places(lat: float, lng: float, radius: int, category: str) -> List[dic
 # Main logic to generate places
 # -------------------------
 def generate_places(request: QuestRequest) -> List[dict]:
-    radius = get_radius_meters(request.time_minutes, request.transport)
-    top_k = request.top_n or 10
+    # Frontend sends radius in km, convert to meters. Ensure min 500m.
+    radius = max(int(request.radius * 1000), 500)
+    top_k = request.popularity
 
     all_places = []
 
     # Fetch places for each category
     for cat in request.categories:
-        results = fetch_places(request.lat, request.lng, radius, cat)
+        results = fetch_places(request.latitude, request.longitude, radius, cat)
         all_places.extend(results)
 
     # Remove duplicates based on place_id
