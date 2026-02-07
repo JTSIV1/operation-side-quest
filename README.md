@@ -8,6 +8,11 @@ Operation Side-Quest is a gamified urban exploration platform designed to turn y
 - **Gamification**: Earn points for every stop you visit and compete on the leaderboard with your friends.
 - **Social**: Add friends, share routes, and see what quests others are embarking on.
 
+## Tech Stack
+- **Backend**: Python, FastAPI, SQLite
+- **Frontend**: HTML, CSS, JavaScript, Leaflet.js
+- **APIs**: Google Places API, Mapbox Optimization API
+
 ## Setup
 
 1. Create a `.env` file in the root directory in the format of `.env.example` and fill in your API keys.
