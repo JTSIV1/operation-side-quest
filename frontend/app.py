@@ -25,6 +25,10 @@ def saved_routes():
 @app.route("/account")
 def account():
     return render_template("account.html")
+  
+@app.route("/leaderboard")
+def leaderboard():
+    return render_template("leaderboard.html")
 
 if __name__ == "__main__":
     app.run(debug=True)

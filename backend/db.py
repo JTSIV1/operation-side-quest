@@ -150,6 +150,17 @@ def get_friends(user_id):
     """
     return _get_users_from_query(query, (user_id, user_id))
 
+def get_user(user_id):
+    """Returns details for a specific user."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, email, username, first_name, last_name FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return {"id": row[0], "email": row[1], "username": row[2], "first_name": row[3], "last_name": row[4]}
+    return None
+
 def get_incoming_requests(user_id):
     """Returns users who added user_id, but user_id hasn't added them back."""
     query = """
