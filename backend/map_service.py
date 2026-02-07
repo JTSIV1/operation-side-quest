@@ -65,13 +65,15 @@ def get_stop_count(time_minutes: int, max_stops: Optional[int]) -> int:
 # -------------------------
 # Category Mappings
 # -------------------------
+# These map to strict Google Place "types" to avoid irrelevant keyword matches.
+# e.g. "bar" as a type excludes "Espresso Bar" (which is a cafe).
 CATEGORY_MAPPINGS = {
     "art": "art_gallery|museum",
-    "history": "museum|historical_landmark",
+    "history": "museum|tourist_attraction",
     "nature": "park|garden",
-    "shopping": "clothing_store",
+    "shopping": "clothing_store|shopping_mall",
     "cafes": "cafe",
-    "desserts": "bakery|ice_cream_shop",
+    "desserts": "bakery",
     "nightlife": "bar|night_club",
 }
 
@@ -82,29 +84,47 @@ def fetch_places(lat: float, lng: float, radius: int, category: str) -> List[dic
     """
     Uses Google Nearby Search API with default prominence sorting
     """
-    # Map generic terms to specific Google keywords to avoid "art supply stores"
-    search_keyword = CATEGORY_MAPPINGS.get(category.lower(), category)
+    # Check if we have a strict type mapping
+    mapped_types = CATEGORY_MAPPINGS.get(category.lower())
 
     url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
-    params = {
-        "location": f"{lat},{lng}",
-        "radius": radius,     # required for prominence
-        "keyword": search_keyword,
-        "key": GOOGLE_KEY
-    }
+    all_results = []
 
-    res = requests.get(url, params=params, timeout=10)
-    data = res.json()
-    
-    if data.get("error_message"):
-        logger.error(f"Google API error message: {data.get('error_message')}")
+    # If we have mapped types (e.g. "bar|night_club"), split them and fetch each strictly
+    if mapped_types:
+        types_list = mapped_types.split("|")
+        for t in types_list:
+            params = {
+                "location": f"{lat},{lng}",
+                "radius": radius,
+                "type": t,  # Strict type filtering
+                "key": GOOGLE_KEY
+            }
+            res = requests.get(url, params=params, timeout=10)
+            data = res.json()
+            all_results.extend(data.get("results", []))
+            
+    else:
+        # Fallback to keyword search for unmapped categories
+        params = {
+            "location": f"{lat},{lng}",
+            "radius": radius,
+            "keyword": category,
+            "key": GOOGLE_KEY
+        }
+        res = requests.get(url, params=params, timeout=10)
+        data = res.json()
+        all_results.extend(data.get("results", []))
 
-    return data.get("results", [])
+    return all_results
 
 
 def generate_places(request: QuestRequest) -> List[dict]:
     radius = max(int(request.radius * 1000), 500)
-    top_k = request.popularity
+    
+    # Interpret 'popularity' as the Diversity Slider (1 = Best Only, 5 = Most Diverse)
+    # If value is >= 3, we enforce category diversity. If < 3, we just pick the top rated places.
+    prioritize_diversity = request.popularity >= 3
     
     # Helper for scoring
     def get_popularity_score(place):
@@ -129,45 +149,64 @@ def generate_places(request: QuestRequest) -> List[dict]:
         filtered_cat.sort(key=lambda x: x["_score"], reverse=True)
         places_by_category[cat] = filtered_cat
 
-    # 2. Balanced Selection (Round-Robin / Quota)
-    pool_size = max(top_k * 4, 20)
+    # 2. Selection Strategy
+    # Dynamic pool size: fetch enough candidates for the optimizer
+    # e.g., if we need 5 stops, fetch ~15 options to choose from.
+    estimated_stops = get_stop_count(request.route_min, None)
+    pool_size = max(estimated_stops * 3, 20)
+
     num_cats = len(request.categories)
     if num_cats == 0:
         return []
-
-    target_per_cat = math.ceil(pool_size / num_cats)
     
     selected_places = []
     seen_ids = set()
 
-    # Pass 1: Fill quotas for each category
-    for cat in request.categories:
-        candidates = places_by_category.get(cat, [])
-        count = 0
-        for p in candidates:
-            if count >= target_per_cat:
+    if prioritize_diversity:
+        # STRATEGY A: Balanced Selection (Round-Robin / Quota)
+        target_per_cat = math.ceil(pool_size / num_cats)
+        
+        # Pass 1: Fill quotas
+        for cat in request.categories:
+            candidates = places_by_category.get(cat, [])
+            count = 0
+            for p in candidates:
+                if count >= target_per_cat:
+                    break
+                pid = p.get("place_id")
+                if pid and pid not in seen_ids:
+                    seen_ids.add(pid)
+                    selected_places.append(p)
+                    count += 1
+        
+        # Pass 2: Fill remainder
+        if len(selected_places) < pool_size:
+            remaining = []
+            for cat in request.categories:
+                for p in places_by_category.get(cat, []):
+                    pid = p.get("place_id")
+                    if pid and pid not in seen_ids:
+                        remaining.append(p)
+            remaining.sort(key=lambda x: x["_score"], reverse=True)
+            selected_places.extend(remaining[:(pool_size - len(selected_places))])
+            
+    else:
+        # STRATEGY B: Best Only (Global Sort)
+        all_candidates = []
+        for cat in request.categories:
+            all_candidates.extend(places_by_category.get(cat, []))
+        
+        all_candidates.sort(key=lambda x: x["_score"], reverse=True)
+        
+        for p in all_candidates:
+            if len(selected_places) >= pool_size:
                 break
             pid = p.get("place_id")
             if pid and pid not in seen_ids:
                 seen_ids.add(pid)
                 selected_places.append(p)
-                count += 1
-    
-    # Pass 2: If we haven't met pool_size, fill with the highest scoring remaining places
-    if len(selected_places) < pool_size:
-        remaining = []
-        for cat in request.categories:
-            for p in places_by_category.get(cat, []):
-                pid = p.get("place_id")
-                if pid and pid not in seen_ids:
-                    remaining.append(p)
-        
-        # Sort remaining globally by score
-        remaining.sort(key=lambda x: x["_score"], reverse=True)
-        needed = pool_size - len(selected_places)
-        selected_places.extend(remaining[:needed])
 
-    logger.info(f"Selected {len(selected_places)} places with balanced categories.")
+    logger.info(f"Selected {len(selected_places)} places. Mode: {'Diversity' if prioritize_diversity else 'Best Only'}")
 
     return [
         {
