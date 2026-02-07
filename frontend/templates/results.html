@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quest Results</title>
+    <!-- Leaflet CSS for the map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: sans-serif;
+            background-color: #2A3537;
+            color: #e0e0e0;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+        /* Left Sidebar */
+        .sidebar {
+            width: 33.33%;
+            background-color: #2A3537;
+            padding: 20px;
+            box-sizing: border-box;
+            border-right: 1px solid #444;
+            color: #ffffff;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .branding {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .branding img {
+            height: 100px;
+            width: auto;
+        }
+
+        .sidebar h2 {
+            margin-top: 0;
+            color: #e0e0e0;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+
+        .place-card {
+            background: #3A4547;
+            border: 1px solid #666;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            color: #e0e0e0;
+        }
+
+        .place-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            border-color: #4CAF50;
+        }
+
+        .place-name { font-weight: bold; font-size: 1.1em; color: #ffffff; margin-bottom: 5px; }
+        .place-meta { font-size: 0.9em; color: #aaa; margin-bottom: 4px; }
+        .place-rating { color: #f39c12; font-weight: bold; }
+        .place-link { display: inline-block; margin-top: 8px; color: #4CAF50; text-decoration: none; font-size: 0.9em; }
+        .place-link:hover { text-decoration: underline; color: #81C784; }
+
+        /* Right Map Area */
+        .map-wrapper {
+            width: 66.67%;
+            height: 100%;
+            position: relative;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+        /* Invert map tiles to create a "Streets Night Mode" from standard OSM */
+        .leaflet-tile-pane {
+            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+            margin-top: 20px;
+        }
+        .btn:hover { color: #ffffff; }
+        .btn-new-quest { border-color: #4CAF50; background-color: rgba(76, 175, 80, 0.1); }
+        .btn-new-quest:hover { background-color: rgba(76, 175, 80, 0.25); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="sidebar">
+        <div class="branding">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" style="margin-right: 10px;">
+            <img src="{{ url_for('static', filename='images/text.png') }}" alt="Operation Side-Quest">
+        </div>
+        <h2>Your Quest Route</h2>
+        <div id="results-list">Loading...</div>
+        <button onclick="localStorage.removeItem('quest_results'); window.location.href='/'" class="btn btn-new-quest">&larr; Start New Quest</button>
+    </div>
+
+    <div class="map-wrapper">
+        <div id="map"></div>
+    </div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // 1. Initialize Map
+        const map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // 2. Load data from environment (localStorage)
+        const storedData = localStorage.getItem('quest_results');
+        const listContainer = document.getElementById('results-list');
+        
+        if (!storedData) {
+            listContainer.innerHTML = '<p>No results found. Please generate a route first.</p>';
+            return;
+        }
+
+        try {
+            const data = JSON.parse(storedData);
+            // Prefer ordered_places if available (optimized route), else selected_places
+            let places = data.ordered_places || data.selected_places || [];
+            
+            listContainer.innerHTML = ''; // Clear loading text
+            const markers = [];
+
+            if (places.length === 0) {
+                // listContainer.innerHTML = '<p>No places found matching your criteria.</p>';
+                places = [
+                    { name: "Cathedral of Learning", lat: 40.4443, lng: -79.9532, address: "4200 Fifth Ave, Pittsburgh, PA 15260", rating: 4.8 },
+                    { name: "Phipps Conservatory", lat: 40.4392, lng: -79.9474, address: "1 Schenley Drive, Pittsburgh, PA 15213", rating: 4.9 },
+                    { name: "Duquesne Incline", lat: 40.4397, lng: -80.0181, address: "1197 W Carson St, Pittsburgh, PA 15219", rating: 4.7 },
+                    { name: "Point State Park", lat: 40.4417, lng: -80.0138, address: "601 Commonwealth Pl, Pittsburgh, PA 15222", rating: 4.8 },
+                    { name: "Andy Warhol Museum", lat: 40.4484, lng: -80.0025, address: "117 Sandusky St, Pittsburgh, PA 15212", rating: 4.6 }
+                ];
+            }
+
+            places.forEach((place, index) => {
+                // -- Render List Item --
+                const card = document.createElement('div');
+                card.className = 'place-card';
+                const googleMapsLink = `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
+                
+                card.innerHTML = `
+                    <div class="place-name">${index + 1}. ${place.name}</div>
+                    <div class="place-meta">${place.address || 'No address available'}</div>
+                    <div class="place-meta">Rating: <span class="place-rating">${place.rating || 'N/A'} ★</span></div>
+                    <a href="${googleMapsLink}" target="_blank" class="place-link">View on Google Maps</a>
+                `;
+                listContainer.appendChild(card);
+
+                // -- Add Map Marker --
+                const marker = L.marker([place.lat, place.lng])
+                    .addTo(map)
+                    .bindPopup(`<b>${place.name}</b><br>${place.address}`);
+                markers.push(marker);
+            });
+
+            // -- Draw Path --
+            if (places.length > 1) {
+                const latLngs = places.map(p => [p.lat, p.lng]);
+                L.polyline(latLngs, { color: '#4CAF50', weight: 4, opacity: 0.8 }).addTo(map);
+            }
+
+            // -- Fit Map to Bounds --
+            if (markers.length > 0) {
+                const group = new L.featureGroup(markers);
+                map.fitBounds(group.getBounds(), { padding: [50, 50] });
+            }
+
+        } catch (e) {
+            console.error("Error parsing quest results:", e);
+            listContainer.innerHTML = '<p>Error loading results data.</p>';
+        }
+    });
+</script>
+</body>
+</html>

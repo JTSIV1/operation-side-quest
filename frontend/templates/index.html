@@ -594,6 +594,8 @@
         .then(data => {
             console.log('Route generated:', data);
             // window.location.href = '/result'; // Forward to new page
+            localStorage.setItem('quest_results', JSON.stringify(data));
+            window.location.href = '/results';
         })
         .catch(err => console.error('Error:', err));
     });
