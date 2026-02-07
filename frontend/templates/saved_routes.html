@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saved Routes - Operation Side-Quest</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: sans-serif;
+            background-color: #2A3537;
+            color: #e0e0e0;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+        .sidebar {
+            width: 33.33%;
+            background-color: #2A3537;
+            padding: 20px;
+            box-sizing: border-box;
+            border-right: 1px solid #444;
+            color: #ffffff;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .branding {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .branding img {
+            height: 80px;
+            width: auto;
+        }
+        .map-wrapper {
+            width: 66.67%;
+            height: 100%;
+            position: relative;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+        .leaflet-tile-pane {
+            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
+        h2 { margin-top: 0; color: #e0e0e0; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        
+        .btn-back {
+            background: none; border: none; color: #e0e0e0; font-size: 2rem; cursor: pointer; padding: 0; margin-right: 15px; line-height: 1;
+        }
+        .btn-back:hover { color: #fff; }
+
+        /* Route List Styles */
+        .route-card {
+            background: #3A4547;
+            border: 1px solid #666;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .route-card:hover {
+            border-color: #4CAF50;
+            background-color: #455052;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        .route-title { font-weight: bold; color: #fff; margin-bottom: 5px; font-size: 1.1em; }
+        .route-info { font-size: 0.9em; color: #aaa; margin-bottom: 5px; }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .status-complete { background-color: rgba(76, 175, 80, 0.2); color: #4CAF50; border: 1px solid #4CAF50; }
+        .status-incomplete { background-color: rgba(255, 193, 7, 0.2); color: #FFC107; border: 1px solid #FFC107; }
+
+        /* Detail View Styles (reusing place-card) */
+        .place-card {
+            background: #3A4547;
+            border: 1px solid #666;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            color: #e0e0e0;
+        }
+        .place-name { font-weight: bold; font-size: 1.1em; color: #ffffff; margin-bottom: 5px; }
+        .place-meta { font-size: 0.9em; color: #aaa; margin-bottom: 4px; }
+        .place-rating { color: #f39c12; font-weight: bold; }
+
+        /* Action Buttons */
+        .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+        .actions { display: flex; gap: 5px; }
+        .btn-action { padding: 5px 10px; font-size: 0.8em; cursor: pointer; border-radius: 4px; border: 1px solid #666; background: #444; color: #fff; z-index: 10; position: relative; }
+        .btn-action:hover { background: #555; }
+        .btn-delete { border-color: #f44336; color: #f44336; background: rgba(244, 67, 54, 0.1); }
+        .btn-delete:hover { background: rgba(244, 67, 54, 0.2); }
+        .btn-share { border-color: #2196F3; color: #2196F3; background: rgba(33, 150, 243, 0.1); }
+        .btn-complete { border-color: #4CAF50; color: #4CAF50; background: rgba(76, 175, 80, 0.1); }
+
+        /* Modal Overlay Styles */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.7); z-index: 9999;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .modal-box {
+            background-color: #3A4547; padding: 25px; border-radius: 10px;
+            border: 1px solid #666; width: 400px; color: #e0e0e0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .modal-header { font-size: 1.2em; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #555; padding-bottom: 10px; }
+        .participant-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #444; }
+        .participant-name { font-weight: bold; }
+        .participant-email { font-size: 0.85em; color: #aaa; }
+        .btn-remove-part { background: none; border: none; color: #f44336; font-weight: bold; cursor: pointer; font-size: 1.1em; }
+        .btn-remove-part:hover { color: #ff7961; }
+        
+        .add-section { margin-top: 20px; display: flex; gap: 10px; }
+        .modal-select { flex: 1; padding: 8px; background: #2A3537; border: 1px solid #666; color: #fff; border-radius: 4px; }
+        .btn-modal-add { padding: 8px 15px; background: rgba(33, 150, 243, 0.1); border: 1px solid #2196F3; color: #2196F3; border-radius: 4px; cursor: pointer; }
+        .btn-modal-add:hover { background: rgba(33, 150, 243, 0.25); }
+        .btn-modal-close { width: 100%; margin-top: 20px; padding: 10px; background: #444; border: none; color: #fff; border-radius: 4px; cursor: pointer; }
+        .btn-modal-close:hover { background: #555; }
+
+        .shared-label {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 0.75em;
+            color: #ccc;
+            background: rgba(0,0,0,0.4);
+            padding: 2px 8px;
+            border-radius: 10px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Share Modal Overlay -->
+    <div id="share-overlay" class="overlay" style="display: none;">
+        <div class="modal-box">
+            <div class="modal-header">Manage Participants</div>
+            
+            <div style="font-size: 0.9em; color: #aaa; margin-bottom: 5px;">Current Participants:</div>
+            <div id="participants-list">
+                <!-- Populated by JS -->
+            </div>
+            <div id="no-participants" style="font-style: italic; color: #777; padding: 10px 0; display: none;">No other participants.</div>
+
+            <div class="add-section">
+                <select id="friend-select" class="modal-select">
+                    <option value="">Select a friend...</option>
+                </select>
+                <button onclick="addSelectedFriend()" class="btn-modal-add">Add</button>
+            </div>
+
+            <button onclick="closeShareModal()" class="btn-modal-close">Close</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="branding">
+                <button class="btn-back" onclick="handleBack()" title="Back">&larr;</button>
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" style="margin-right: 10px;">
+                <img src="{{ url_for('static', filename='images/text.png') }}" alt="Operation Side-Quest" style="height: 40px; width: auto;">
+            </div>
+            
+            <!-- List View -->
+            <div id="list-view">
+                <h2>Saved Routes</h2>
+                <div id="routes-list">Loading...</div>
+            </div>
+
+            <!-- Detail View -->
+            <div id="detail-view" style="display: none;">
+                <h2 id="detail-title">Route Details</h2>
+                <div id="places-list"></div>
+            </div>
+        </div>
+        <div class="map-wrapper">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map').setView([40.4432, -79.9428], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        let mapLayerGroup = L.layerGroup().addTo(map);
+        const userId = localStorage.getItem('user_id');
+        const API_URL = "http://127.0.0.1:8000";
+
+        if (!userId) window.location.href = "/login";
+
+        function handleBack() {
+            if (document.getElementById('detail-view').style.display === 'block') {
+                // Go from detail to list
+                document.getElementById('detail-view').style.display = 'none';
+                document.getElementById('list-view').style.display = 'block';
+                mapLayerGroup.clearLayers();
+                map.setView([40.4432, -79.9428], 13); // Reset view
+            } else {
+                // Go home
+                window.location.href = '/';
+            }
+        }
+
+        async function loadRoutes() {
+            const container = document.getElementById('routes-list');
+            try {
+                const res = await fetch(`${API_URL}/saved-routes/${userId}`);
+                const routes = await res.json();
+
+                container.innerHTML = '';
+                if (!routes || routes.length === 0) {
+                    container.innerHTML = '<p>No saved routes found.</p>';
+                    return;
+                }
+
+                routes.forEach((route, idx) => {
+                    const data = route.route_data;
+                    // Try to get a date
+                    let dateStr = "Unknown Date";
+                    if (data.requested && data.requested.datetime) {
+                        dateStr = new Date(data.requested.datetime).toLocaleString();
+                    }
+
+                    // Determine actions based on ownership
+                    let actionButtons = '';
+                    if (route.is_owner) {
+                        actionButtons = `
+                            <button class="btn-action btn-complete" onclick="toggleStatus('${route.route_id}', ${!route.completed})">
+                                ${route.completed ? 'Mark Incomplete' : 'Mark Complete'}
+                            </button>
+                            <button class="btn-action btn-share" onclick="openShareModal('${route.route_id}')">Add Friend</button>
+                            <button class="btn-action btn-delete" onclick="deleteRoute('${route.route_id}')">Delete</button>
+                        `;
+                    } else {
+                        actionButtons = `
+                            <button class="btn-action btn-delete" onclick="deleteRoute('${route.route_id}')">Leave</button>
+                        `;
+                    }
+
+                    const sharedLabel = !route.is_owner ? `<div class="shared-label">Shared with you by ${route.owner_name}</div>` : '';
+
+                    const routeName = route.name || `Route #${routes.length - idx}`;
+
+                    const div = document.createElement('div');
+                    div.className = 'route-card';
+                    div.innerHTML = `
+                        ${sharedLabel}
+                        <div class="route-title">${routeName}</div>
+                        <div class="route-info">${dateStr}</div>
+                        <div class="route-info">${route.num_stops} Stops</div>
+                        <div class="card-footer">
+                            <span class="status-badge ${route.completed ? 'status-complete' : 'status-incomplete'}">
+                                ${route.completed ? 'Completed' : 'Incomplete'}
+                            </span>
+                            <div class="actions" onclick="event.stopPropagation()">
+                                ${actionButtons}
+                            </div>
+                        </div>
+                    `;
+                    div.onclick = () => showRoute(route);
+                    container.appendChild(div);
+                });
+            } catch (e) {
+                console.error(e);
+                container.innerHTML = '<p>Error loading routes.</p>';
+            }
+        }
+
+        function showRoute(route) {
+            document.getElementById('list-view').style.display = 'none';
+            document.getElementById('detail-view').style.display = 'block';
+            
+            const listContainer = document.getElementById('places-list');
+            listContainer.innerHTML = '';
+            mapLayerGroup.clearLayers();
+
+            const places = route.route_data.ordered_places || route.route_data.selected_places || [];
+            const markers = [];
+
+            places.forEach((place, index) => {
+                // Sidebar Card
+                const card = document.createElement('div');
+                card.className = 'place-card';
+                card.innerHTML = `
+                    <div class="place-name">${index + 1}. ${place.name}</div>
+                    <div class="place-meta">${place.address || ''}</div>
+                    <div class="place-meta">Rating: <span class="place-rating">${place.rating || 'N/A'} ★</span></div>
+                `;
+                listContainer.appendChild(card);
+
+                // Map Marker
+                const marker = L.marker([place.lat, place.lng])
+                    .bindPopup(`<b>${place.name}</b><br>${place.address}`);
+                mapLayerGroup.addLayer(marker);
+                markers.push(marker);
+            });
+
+            if (places.length > 1) {
+                const latLngs = places.map(p => [p.lat, p.lng]);
+                L.polyline(latLngs, { color: '#4CAF50', weight: 4, opacity: 0.8 }).addTo(mapLayerGroup);
+            }
+
+            if (markers.length > 0) {
+                const group = L.featureGroup(markers);
+                map.fitBounds(group.getBounds(), { padding: [50, 50] });
+            }
+        }
+
+        loadRoutes();
+
+        async function deleteRoute(routeId) {
+            if (!confirm("Are you sure you want to delete/leave this route?")) return;
+            try {
+                const res = await fetch(`${API_URL}/delete-route`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({user_id: userId, route_id: routeId})
+                });
+                if (res.ok) {
+                    loadRoutes();
+                    if (document.getElementById('detail-view').style.display === 'block') handleBack();
+                } else {
+                    alert("Failed to delete route");
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function toggleStatus(routeId, newStatus) {
+            try {
+                const res = await fetch(`${API_URL}/update-route-status`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({route_id: routeId, completed: newStatus})
+                });
+                if (res.ok) {
+                    loadRoutes();
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        // --- Modal Logic ---
+        let currentRouteId = null;
+
+        async function openShareModal(routeId) {
+            currentRouteId = routeId;
+            document.getElementById('share-overlay').style.display = 'flex';
+            await refreshModalData();
+        }
+
+        function closeShareModal() {
+            document.getElementById('share-overlay').style.display = 'none';
+            currentRouteId = null;
+        }
+
+        async function refreshModalData() {
+            if (!currentRouteId) return;
+            
+            const pList = document.getElementById('participants-list');
+            const fSelect = document.getElementById('friend-select');
+            const noPart = document.getElementById('no-participants');
+            
+            pList.innerHTML = 'Loading...';
+            fSelect.innerHTML = '<option value="">Loading...</option>';
+
+            try {
+                // 1. Get Participants
+                const resP = await fetch(`${API_URL}/route-participants/${currentRouteId}`);
+                const participants = await resP.json();
+
+                // 2. Get Friends
+                const resF = await fetch(`${API_URL}/friends/${userId}`);
+                const friends = await resF.json();
+
+                // Render Participants
+                pList.innerHTML = '';
+                if (participants.length === 0) {
+                    noPart.style.display = 'block';
+                } else {
+                    noPart.style.display = 'none';
+                    participants.forEach(p => {
+                        const row = document.createElement('div');
+                        row.className = 'participant-row';
+                        row.innerHTML = `
+                            <div>
+                                <div class="participant-name">${p.first_name} ${p.last_name}</div>
+                                <div class="participant-email">${p.email}</div>
+                            </div>
+                            <button class="btn-remove-part" onclick="removeParticipant('${p.id}')" title="Remove">&times;</button>
+                        `;
+                        pList.appendChild(row);
+                    });
+                }
+
+                // Render Dropdown (Filter out existing participants)
+                fSelect.innerHTML = '<option value="">Select a friend...</option>';
+                const participantEmails = new Set(participants.map(p => p.email));
+                
+                friends.forEach(f => {
+                    if (!participantEmails.has(f.email)) {
+                        const opt = document.createElement('option');
+                        opt.value = f.email;
+                        opt.textContent = `${f.first_name} ${f.last_name} (${f.email})`;
+                        fSelect.appendChild(opt);
+                    }
+                });
+
+            } catch (e) {
+                console.error(e);
+                pList.innerHTML = 'Error loading data.';
+            }
+        }
+
+        async function addSelectedFriend() {
+            const email = document.getElementById('friend-select').value;
+            if (!email) return;
+            
+            try {
+                const res = await fetch(`${API_URL}/share-route`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({route_id: currentRouteId, friend_email: email})
+                });
+                if (res.ok) {
+                    refreshModalData();
+                } else {
+                    const data = await res.json();
+                    alert("Error: " + (data.detail || "Unknown error"));
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function removeParticipant(pId) {
+            if (!confirm("Remove this user from the route?")) return;
+            try {
+                const res = await fetch(`${API_URL}/remove-route-participant`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({route_id: currentRouteId, user_id: pId})
+                });
+                if (res.ok) {
+                    refreshModalData();
+                } else {
+                    alert("Failed to remove participant");
+                }
+            } catch (e) { console.error(e); }
+        }
+    </script>
+</body>
+</html>

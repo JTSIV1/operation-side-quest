@@ -18,5 +18,9 @@ def results():
 def friends():
     return render_template("friends.html")
 
+@app.route("/saved-routes")
+def saved_routes():
+    return render_template("saved_routes.html")
+
 if __name__ == "__main__":
     app.run(debug=True)
