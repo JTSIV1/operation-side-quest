@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operation Side-Quest</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+     
+    <!-- Leaflet Control Geocoder CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: sans-serif;
+            background-color: #2A3537;
+            color: #e0e0e0;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+        .sidebar {
+            width: 33.33%;
+            background-color: #2A3537;
+            padding: 20px;
+            box-sizing: border-box;
+            border-right: 1px solid #444;
+            color: #ffffff;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .map-wrapper {
+            width: 66.67%;
+            height: 100%;
+            position: relative;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+        .branding {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .branding img {
+            height: 100px;
+            width: auto;
+        }
+        /* Invert map tiles to create a "Streets Night Mode" from standard OSM */
+        .leaflet-tile-pane {
+            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
+        .button-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .btn {
+            flex: 1;
+            padding: 25px;
+            border: 2px solid;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+        }
+        .btn:hover { color: #ffffff; }
+        
+        .btn-city { border-color: #009688; background-color: rgba(0, 150, 136, 0.1); }
+        .btn-city:hover { background-color: rgba(0, 150, 136, 0.25); }
+        
+        .btn-neighborhood { border-color: #673AB7; background-color: rgba(103, 58, 183, 0.1); }
+        .btn-neighborhood:hover { background-color: rgba(103, 58, 183, 0.25); }
+        
+        .btn-nightlife { border-color: #FF5722; background-color: rgba(255, 87, 34, 0.1); }
+        .btn-nightlife:hover { background-color: rgba(255, 87, 34, 0.25); }
+        
+        .btn-gems { border-color: #E91E63; background-color: rgba(233, 30, 99, 0.1); }
+        .btn-gems:hover { background-color: rgba(233, 30, 99, 0.25); }
+        
+        .btn-path { border-color: #4CAF50; background-color: rgba(76, 175, 80, 0.1); width: 100%; }
+        .btn-path:hover { background-color: rgba(76, 175, 80, 0.25); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="sidebar">
+        <div class="branding">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" style="margin-right: 10px;">
+            <img src="{{ url_for('static', filename='images/text.png') }}" alt="Operation Side-Quest">
+        </div>
+        <div id="widgets">
+            <div class="button-row">
+                <button class="btn btn-city">New City</button>
+                <button class="btn btn-neighborhood">New Neighborhood</button>
+            </div>
+            <div class="button-row">
+                <button class="btn btn-nightlife">Nightlife</button>
+                <button class="btn btn-gems">Hidden Gems</button>
+            </div>
+            <div class="button-row">
+                <button class="btn btn-path">Chart Your Own Path</button>
+            </div>
+        </div>
+    </div>
+    <div class="map-wrapper">
+        <div id="map"></div>
+    </div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
+
+<!-- Leaflet Control Geocoder JS -->
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+<script>
+    // Initialize map centered on a default location (e.g., Pittsburgh)
+    var map = L.map('map').setView([40.4432, -79.9428], 13);
+
+    // Add OpenStreetMap tile layer (inverted via CSS for night mode)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    // Add Search Bar (Geocoder)
+    L.Control.geocoder().addTo(map);
+</script>
+</body>
+</html>
