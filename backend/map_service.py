@@ -85,22 +85,17 @@ def fetch_places(lat: float, lng: float, radius: int, category: str) -> List[dic
     return data.get("results", [])
 
 
-# -------------------------
-# Main logic to generate places
-# -------------------------
+import math # <--- ADD THIS at the top of your file
+
 def generate_places(request: QuestRequest) -> List[dict]:
-    # Frontend sends radius in km, convert to meters. Ensure min 500m.
     radius = max(int(request.radius * 1000), 500)
     top_k = request.popularity
-
     all_places = []
 
-    # Fetch places for each category
     for cat in request.categories:
         results = fetch_places(request.latitude, request.longitude, radius, cat)
         all_places.extend(results)
 
-    # Remove duplicates based on place_id
     seen = set()
     unique = []
     for p in all_places:
@@ -111,29 +106,40 @@ def generate_places(request: QuestRequest) -> List[dict]:
             
     logger.info(f"Found {len(unique)} unique places before filtering.")
 
-    # Filter by budget (Google price_level 0-4)
+    # --- UPDATED FILTERING ---
+    # We add a "floor" for reviews (e.g., must have at least 5 reviews) 
+    # to stop 1-review wonders from appearing.
     filtered = [
         p for p in unique
         if p.get("price_level", 0) <= request.budget
+        and p.get("user_ratings_total", 0) >= 5  # <--- ADD THIS
     ]
     
-    logger.info(f"Places remaining after budget filter: {len(filtered)}")
+    logger.info(f"Places remaining after filters: {len(filtered)}")
 
-    # Pick top K based on Google's default prominence order (filtered by rating)
-    # Sort by rating then keep a larger pool for the optimizer to choose from
-    # We use a multiplier (e.g. 4x) to give the route optimizer more flexibility
+    # --- DELETE THE OLD SORTING LINE ---
+    # selected = sorted(filtered, key=lambda x: x.get("rating", 0), reverse=True)[:pool_size]
+
+    # --- ADD THIS WEIGHTED SORTING ---
+    def get_popularity_score(place):
+        rating = place.get("rating", 0)
+        reviews = place.get("user_ratings_total", 0)
+        # Weighting formula: Rating * Log10(Reviews)
+        # The +1 ensures we don't multiply by zero.
+        return rating * math.log10(reviews + 1)
+
     pool_size = max(top_k * 4, 20)
-    selected = sorted(filtered, key=lambda x: x.get("rating", 0), reverse=True)[:pool_size]
+    selected = sorted(filtered, key=get_popularity_score, reverse=True)[:pool_size]
     
-    logger.info(f"Selected {len(selected)} places to return (pool size: {pool_size}).")
+    logger.info(f"Selected {len(selected)} places using weighted popularity.")
 
-    # Return only necessary info
     return [
         {
             "name": p["name"],
             "lat": p["geometry"]["location"]["lat"],
             "lng": p["geometry"]["location"]["lng"],
             "rating": p.get("rating", 0),
+            "user_ratings_total": p.get("user_ratings_total", 0), # <--- ADD THIS for frontend visibility
             "address": p.get("vicinity", "")
         }
         for p in selected
