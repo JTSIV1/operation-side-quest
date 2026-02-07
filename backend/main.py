@@ -76,7 +76,14 @@ def generate_quest(req: QuestRequest):
     1) Use `map_service.generate_places` to fetch top-K places based on the user's QuestRequest.
     2) Call `gamify.get_mapbox_route` to compute an optimized visiting order starting from the user's location.
     """
-    logger.info(f"Received generate-quest request: {req}")
+    logger.info(
+        "Received generate-quest request: categories=%s budget=%s route_min=%s driving=%s radius=%.2f",
+        req.categories,
+        req.budget,
+        req.route_min,
+        req.driving,
+        req.radius,
+    )
     # 1) Generate candidate places using existing logic (top_n candidates)
     try:
         places = map_service.generate_places(req)

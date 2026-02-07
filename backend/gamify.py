@@ -69,7 +69,7 @@ def get_mapbox_route(
     
     # Extract places in order. Index 0 is user location (skip it).
     ordered_places = []
-    for input_idx, wp in sorted_inputs:
+    for input_idx, _wp in sorted_inputs:
         if input_idx == 0:
             continue
         ordered_places.append(places[input_idx - 1])

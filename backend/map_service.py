@@ -119,7 +119,7 @@ def generate_places(request: QuestRequest) -> List[dict]:
     
     logger.info(f"Places remaining after budget filter: {len(filtered)}")
 
-    # Pick top K based on Google’s default prominence order (filtered by rating)
+    # Pick top K based on Google's default prominence order (filtered by rating)
     # Sort by rating then keep a larger pool for the optimizer to choose from
     # We use a multiplier (e.g. 4x) to give the route optimizer more flexibility
     pool_size = max(top_k * 4, 20)
