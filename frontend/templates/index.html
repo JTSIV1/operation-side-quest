@@ -408,6 +408,81 @@
         updateDuration();
     });
 
+    // Handle New Neighborhood Button
+    document.querySelector('.btn-neighborhood').addEventListener('click', function() {
+        document.getElementById('widgets').style.display = 'none';
+        document.getElementById('chart-path-view').style.display = 'block';
+        
+        // UI Updates for New Neighborhood
+        document.getElementById('view-title').textContent = 'New Neighborhood';
+        document.getElementById('view-description').style.display = 'block';
+        document.getElementById('advanced-options-header').style.display = 'flex';
+        document.getElementById('advanced-options-wrapper').style.display = 'none';
+        document.querySelector('#advanced-options-header .arrow-icon').style.transform = 'rotate(0deg)';
+        document.getElementById('advanced-options-header').setAttribute('aria-expanded', 'false');
+
+        // Set Defaults for New Neighborhood
+        document.querySelectorAll('.square-toggle').forEach(cb => cb.checked = false);
+        ['historical', 'nature/park', 'shopping', 'cafes'].forEach(cat => {
+            const cb = document.querySelector(`.square-toggle[data-category="${cat}"]`);
+            if (cb) cb.checked = true;
+        });
+        document.getElementById('popularity-slider').value = 3;
+        document.getElementById('budget-select').value = 1;
+        document.getElementById('duration-slider').value = 120;
+        updateDuration();
+    });
+
+    // Handle Nightlife Button
+    document.querySelector('.btn-nightlife').addEventListener('click', function() {
+        document.getElementById('widgets').style.display = 'none';
+        document.getElementById('chart-path-view').style.display = 'block';
+        
+        // UI Updates for Nightlife
+        document.getElementById('view-title').textContent = 'Nightlife';
+        document.getElementById('view-description').style.display = 'block';
+        document.getElementById('advanced-options-header').style.display = 'flex';
+        document.getElementById('advanced-options-wrapper').style.display = 'none';
+        document.querySelector('#advanced-options-header .arrow-icon').style.transform = 'rotate(0deg)';
+        document.getElementById('advanced-options-header').setAttribute('aria-expanded', 'false');
+
+        // Set Defaults for Nightlife
+        document.querySelectorAll('.square-toggle').forEach(cb => cb.checked = false);
+        ['nightlife', 'desserts'].forEach(cat => {
+            const cb = document.querySelector(`.square-toggle[data-category="${cat}"]`);
+            if (cb) cb.checked = true;
+        });
+        document.getElementById('popularity-slider').value = 4;
+        document.getElementById('budget-select').value = 4;
+        document.getElementById('duration-slider').value = 90;
+        updateDuration();
+    });
+
+    // Handle Hidden Gems Button
+    document.querySelector('.btn-gems').addEventListener('click', function() {
+        document.getElementById('widgets').style.display = 'none';
+        document.getElementById('chart-path-view').style.display = 'block';
+        
+        // UI Updates for Hidden Gems
+        document.getElementById('view-title').textContent = 'Hidden Gems';
+        document.getElementById('view-description').style.display = 'block';
+        document.getElementById('advanced-options-header').style.display = 'flex';
+        document.getElementById('advanced-options-wrapper').style.display = 'none';
+        document.querySelector('#advanced-options-header .arrow-icon').style.transform = 'rotate(0deg)';
+        document.getElementById('advanced-options-header').setAttribute('aria-expanded', 'false');
+
+        // Set Defaults for Hidden Gems
+        document.querySelectorAll('.square-toggle').forEach(cb => cb.checked = false);
+        ['historical', 'nature/park', 'cafes', 'desserts', 'art', 'museums'].forEach(cat => {
+            const cb = document.querySelector(`.square-toggle[data-category="${cat}"]`);
+            if (cb) cb.checked = true;
+        });
+        document.getElementById('popularity-slider').value = 1;
+        document.getElementById('budget-select').value = 2;
+        document.getElementById('duration-slider').value = 90;
+        updateDuration();
+    });
+
     // Handle Chart Your Own Path Button
     document.querySelector('.btn-path').addEventListener('click', function() {
         document.getElementById('widgets').style.display = 'none';
