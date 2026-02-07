@@ -52,6 +52,10 @@ class AddFriendRequest(BaseModel):
     user_id: str
     friend_email: str
 
+class RemoveFriendRequest(BaseModel):
+    user_id: str
+    friend_id: str
+
 
 @app.post("/signup")
 def signup(req: SignupRequest):
@@ -140,6 +144,13 @@ def add_friend(req: AddFriendRequest):
     else:
         raise HTTPException(status_code=500, detail=f"Database error: {result}")
 
+@app.post("/remove-friend")
+def remove_friend(req: RemoveFriendRequest):
+    result = db.remove_friend(req.user_id, req.friend_id)
+    if result == "Success":
+        return {"message": "Removed successfully"}
+    else:
+        raise HTTPException(status_code=500, detail=f"Database error: {result}")
 
 @app.get("/friends/{user_id}")
 def get_friends(user_id: str):

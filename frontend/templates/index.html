@@ -699,31 +699,10 @@
         localStorage.removeItem('user_id');
         window.location.href = "/login";
     });
-</script>
-</body>
-</html>
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Route generated:', data);
-            // window.location.href = '/result'; // Forward to new page
-            localStorage.setItem('quest_results', JSON.stringify(data));
-            window.location.href = '/results';
-        })
-        .catch(err => {
-            console.error('Error:', err);
-            document.getElementById('loading-overlay').style.display = 'none';
-            alert('An error occurred while generating the route.');
-        });
-    });
 
-    // Handle Sign Out
-    document.getElementById('btn-signout').addEventListener('click', function() {
-        localStorage.removeItem('user_id');
-        window.location.href = "/login";
+    // Handle Friends Button
+    document.querySelector('.btn-friends').addEventListener('click', function() {
+        window.location.href = "/friends";
     });
 </script>
 </body>

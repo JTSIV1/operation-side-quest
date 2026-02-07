@@ -14,5 +14,9 @@ def login():
 def results():
     return render_template("results.html")
 
+@app.route("/friends")
+def friends():
+    return render_template("friends.html")
+
 if __name__ == "__main__":
     app.run(debug=True)

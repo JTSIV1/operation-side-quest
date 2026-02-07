@@ -83,6 +83,23 @@ def add_friend(user_id, friend_email):
     finally:
         conn.close()
 
+def remove_friend(user_id, friend_id):
+    """Removes any relationship between user_id and friend_id."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            DELETE FROM friends 
+            WHERE (friend_id_1 = ? AND friend_id_2 = ?)
+               OR (friend_id_1 = ? AND friend_id_2 = ?)
+        """, (user_id, friend_id, friend_id, user_id))
+        conn.commit()
+        return "Success"
+    except Exception as e:
+        return str(e)
+    finally:
+        conn.close()
+
 def _get_users_from_query(query, params):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
