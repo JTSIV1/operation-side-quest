@@ -1,5 +1,5 @@
-from dotenv import load_dotenv
-load_dotenv()
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv())
 
 import logging
 from fastapi import FastAPI, HTTPException
@@ -76,6 +76,7 @@ def generate_quest(req: QuestRequest):
     1) Use `map_service.generate_places` to fetch top-K places based on the user's QuestRequest.
     2) Call `gamify.get_mapbox_route` to compute an optimized visiting order starting from the user's location.
     """
+    logger.info(f"Received generate-quest request: {req}")
     # 1) Generate candidate places using existing logic (top_n candidates)
     try:
         places = map_service.generate_places(req)

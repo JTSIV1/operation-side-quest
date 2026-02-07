@@ -1,13 +1,20 @@
 import os
+import logging
 import requests
 from typing import List, Optional
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 from inputparams import QuestRequest
 
-load_dotenv()
+load_dotenv(find_dotenv())
 
 GOOGLE_KEY = os.getenv("GOOGLE_KEY")
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+if not GOOGLE_KEY:
+    logger.error("GOOGLE_KEY is not set. Please check that your .env file exists and contains GOOGLE_KEY.")
 
 # -------------------------
 # Speeds in km/h for transport
@@ -71,6 +78,9 @@ def fetch_places(lat: float, lng: float, radius: int, category: str) -> List[dic
 
     res = requests.get(url, params=params, timeout=10)
     data = res.json()
+    
+    if data.get("error_message"):
+        logger.error(f"Google API error message: {data.get('error_message')}")
 
     return data.get("results", [])
 
@@ -98,16 +108,24 @@ def generate_places(request: QuestRequest) -> List[dict]:
         if pid and pid not in seen:
             seen.add(pid)
             unique.append(p)
+            
+    logger.info(f"Found {len(unique)} unique places before filtering.")
 
     # Filter by budget (Google price_level 0-4)
     filtered = [
         p for p in unique
         if p.get("price_level", 0) <= request.budget
     ]
+    
+    logger.info(f"Places remaining after budget filter: {len(filtered)}")
 
     # Pick top K based on Google’s default prominence order (filtered by rating)
-    # Sort by rating then keep top_k
-    selected = sorted(filtered, key=lambda x: x.get("rating", 0), reverse=True)[:top_k]
+    # Sort by rating then keep a larger pool for the optimizer to choose from
+    # We use a multiplier (e.g. 4x) to give the route optimizer more flexibility
+    pool_size = max(top_k * 4, 20)
+    selected = sorted(filtered, key=lambda x: x.get("rating", 0), reverse=True)[:pool_size]
+    
+    logger.info(f"Selected {len(selected)} places to return (pool size: {pool_size}).")
 
     # Return only necessary info
     return [
