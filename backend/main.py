@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
+import json
 
 from inputparams import QuestRequest
 import map_service
@@ -55,6 +56,10 @@ class AddFriendRequest(BaseModel):
 class RemoveFriendRequest(BaseModel):
     user_id: str
     friend_id: str
+
+class SaveRouteRequest(BaseModel):
+    user_id: str
+    route_data: dict
 
 
 @app.post("/signup")
@@ -129,6 +134,30 @@ def generate_quest(req: QuestRequest):
         travel_time_minutes=travel_time_minutes
     )
 
+@app.post("/save-route")
+def save_route(req: SaveRouteRequest):
+    data = req.route_data
+    # Determine number of stops from the route data
+    places = data.get("ordered_places") or data.get("selected_places") or []
+    num_stops = len(places)
+    
+    route_id = db.create_route(req.user_id, json.dumps(data), num_stops)
+    if not route_id:
+        raise HTTPException(status_code=500, detail="Failed to save route")
+    
+    return {"route_id": route_id, "message": "Route saved successfully"}
+
+@app.get("/saved-routes/{user_id}")
+def get_saved_routes(user_id: str):
+    routes = db.get_user_routes(user_id)
+    # Parse the route_data JSON string so the frontend gets a proper object
+    for r in routes:
+        if r["route_data"]:
+            try:
+                r["route_data"] = json.loads(r["route_data"])
+            except:
+                r["route_data"] = {}
+    return routes
 
 @app.post("/add-friend")
 def add_friend(req: AddFriendRequest):

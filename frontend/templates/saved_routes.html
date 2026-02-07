@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saved Routes - Operation Side-Quest</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: sans-serif;
+            background-color: #2A3537;
+            color: #e0e0e0;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+        .sidebar {
+            width: 33.33%;
+            background-color: #2A3537;
+            padding: 20px;
+            box-sizing: border-box;
+            border-right: 1px solid #444;
+            color: #ffffff;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .branding {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .branding img {
+            height: 80px;
+            width: auto;
+        }
+        .map-wrapper {
+            width: 66.67%;
+            height: 100%;
+            position: relative;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+        .leaflet-tile-pane {
+            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
+        h2 { margin-top: 0; color: #e0e0e0; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        
+        .btn-back {
+            background: none; border: none; color: #e0e0e0; font-size: 2rem; cursor: pointer; padding: 0; margin-right: 15px; line-height: 1;
+        }
+        .btn-back:hover { color: #fff; }
+
+        /* Route List Styles */
+        .route-card {
+            background: #3A4547;
+            border: 1px solid #666;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .route-card:hover {
+            border-color: #4CAF50;
+            background-color: #455052;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        .route-title { font-weight: bold; color: #fff; margin-bottom: 5px; font-size: 1.1em; }
+        .route-info { font-size: 0.9em; color: #aaa; margin-bottom: 5px; }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .status-complete { background-color: rgba(76, 175, 80, 0.2); color: #4CAF50; border: 1px solid #4CAF50; }
+        .status-incomplete { background-color: rgba(255, 193, 7, 0.2); color: #FFC107; border: 1px solid #FFC107; }
+
+        /* Detail View Styles (reusing place-card) */
+        .place-card {
+            background: #3A4547;
+            border: 1px solid #666;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            color: #e0e0e0;
+        }
+        .place-name { font-weight: bold; font-size: 1.1em; color: #ffffff; margin-bottom: 5px; }
+        .place-meta { font-size: 0.9em; color: #aaa; margin-bottom: 4px; }
+        .place-rating { color: #f39c12; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="branding">
+                <button class="btn-back" onclick="handleBack()" title="Back">&larr;</button>
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" style="margin-right: 10px;">
+                <img src="{{ url_for('static', filename='images/text.png') }}" alt="Operation Side-Quest" style="height: 40px; width: auto;">
+            </div>
+            
+            <!-- List View -->
+            <div id="list-view">
+                <h2>Saved Routes</h2>
+                <div id="routes-list">Loading...</div>
+            </div>
+
+            <!-- Detail View -->
+            <div id="detail-view" style="display: none;">
+                <h2 id="detail-title">Route Details</h2>
+                <div id="places-list"></div>
+            </div>
+        </div>
+        <div class="map-wrapper">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map').setView([40.4432, -79.9428], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        let mapLayerGroup = L.layerGroup().addTo(map);
+        const userId = localStorage.getItem('user_id');
+        const API_URL = "http://127.0.0.1:8000";
+
+        if (!userId) window.location.href = "/login";
+
+        function handleBack() {
+            if (document.getElementById('detail-view').style.display === 'block') {
+                // Go from detail to list
+                document.getElementById('detail-view').style.display = 'none';
+                document.getElementById('list-view').style.display = 'block';
+                mapLayerGroup.clearLayers();
+                map.setView([40.4432, -79.9428], 13); // Reset view
+            } else {
+                // Go home
+                window.location.href = '/';
+            }
+        }
+
+        async function loadRoutes() {
+            const container = document.getElementById('routes-list');
+            try {
+                const res = await fetch(`${API_URL}/saved-routes/${userId}`);
+                const routes = await res.json();
+
+                container.innerHTML = '';
+                if (!routes || routes.length === 0) {
+                    container.innerHTML = '<p>No saved routes found.</p>';
+                    return;
+                }
+
+                routes.forEach((route, idx) => {
+                    const data = route.route_data;
+                    // Try to get a date
+                    let dateStr = "Unknown Date";
+                    if (data.requested && data.requested.datetime) {
+                        dateStr = new Date(data.requested.datetime).toLocaleString();
+                    }
+
+                    const div = document.createElement('div');
+                    div.className = 'route-card';
+                    div.innerHTML = `
+                        <div class="route-title">Route #${routes.length - idx}</div>
+                        <div class="route-info">${dateStr}</div>
+                        <div class="route-info">${route.num_stops} Stops</div>
+                        <span class="status-badge ${route.completed ? 'status-complete' : 'status-incomplete'}">
+                            ${route.completed ? 'Completed' : 'Incomplete'}
+                        </span>
+                    `;
+                    div.onclick = () => showRoute(route);
+                    container.appendChild(div);
+                });
+            } catch (e) {
+                console.error(e);
+                container.innerHTML = '<p>Error loading routes.</p>';
+            }
+        }
+
+        function showRoute(route) {
+            document.getElementById('list-view').style.display = 'none';
+            document.getElementById('detail-view').style.display = 'block';
+            
+            const listContainer = document.getElementById('places-list');
+            listContainer.innerHTML = '';
+            mapLayerGroup.clearLayers();
+
+            const places = route.route_data.ordered_places || route.route_data.selected_places || [];
+            const markers = [];
+
+            places.forEach((place, index) => {
+                // Sidebar Card
+                const card = document.createElement('div');
+                card.className = 'place-card';
+                card.innerHTML = `
+                    <div class="place-name">${index + 1}. ${place.name}</div>
+                    <div class="place-meta">${place.address || ''}</div>
+                    <div class="place-meta">Rating: <span class="place-rating">${place.rating || 'N/A'} ★</span></div>
+                `;
+                listContainer.appendChild(card);
+
+                // Map Marker
+                const marker = L.marker([place.lat, place.lng])
+                    .bindPopup(`<b>${place.name}</b><br>${place.address}`);
+                mapLayerGroup.addLayer(marker);
+                markers.push(marker);
+            });
+
+            if (places.length > 1) {
+                const latLngs = places.map(p => [p.lat, p.lng]);
+                L.polyline(latLngs, { color: '#4CAF50', weight: 4, opacity: 0.8 }).addTo(mapLayerGroup);
+            }
+
+            if (markers.length > 0) {
+                const group = L.featureGroup(markers);
+                map.fitBounds(group.getBounds(), { padding: [50, 50] });
+            }
+        }
+
+        loadRoutes();
+    </script>
+</body>
+</html>

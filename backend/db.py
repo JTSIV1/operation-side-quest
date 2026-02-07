@@ -24,6 +24,17 @@ def init_db():
             PRIMARY KEY (friend_id_1, friend_id_2)
         )
     """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS routes (
+            route_id TEXT PRIMARY KEY,
+            owner_id TEXT NOT NULL,
+            num_stops INTEGER,
+            completed INTEGER DEFAULT 0,
+            time_completed TEXT,
+            route_data TEXT,
+            FOREIGN KEY(owner_id) REFERENCES users(id)
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -135,6 +146,47 @@ def get_incoming_requests(user_id):
         )
     """
     return _get_users_from_query(query, (user_id, user_id))
+
+def create_route(owner_id, route_data_json, num_stops):
+    """Creates a new route entry."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    route_id = str(uuid.uuid4())
+    try:
+        cursor.execute("""
+            INSERT INTO routes (route_id, owner_id, num_stops, completed, time_completed, route_data)
+            VALUES (?, ?, ?, 0, NULL, ?)
+        """, (route_id, owner_id, num_stops, route_data_json))
+        conn.commit()
+        return route_id
+    except Exception as e:
+        return None
+    finally:
+        conn.close()
+
+def get_user_routes(user_id):
+    """Retrieves all routes for a given user."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT route_id, num_stops, completed, time_completed, route_data
+        FROM routes
+        WHERE owner_id = ?
+        ORDER BY rowid DESC
+    """, (user_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    routes = []
+    for r in rows:
+        routes.append({
+            "route_id": r[0],
+            "num_stops": r[1],
+            "completed": bool(r[2]),
+            "time_completed": r[3],
+            "route_data": r[4]
+        })
+    return routes
 
 def get_pending_requests(user_id):
     """Returns users whom user_id added, but they haven't added user_id back."""

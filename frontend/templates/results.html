@@ -99,8 +99,10 @@
             margin-top: 20px;
         }
         .btn:hover { color: #ffffff; }
-        .btn-new-quest { border-color: #4CAF50; background-color: rgba(76, 175, 80, 0.1); }
+        .btn-new-quest { border-color: #af594c; background-color: rgba(175, 76, 76, 0.1); }
         .btn-new-quest:hover { background-color: rgba(76, 175, 80, 0.25); }
+        .btn-save { border-color: #2196F3; background-color: rgba(33, 150, 243, 0.1); margin-top: 10px; }
+        .btn-save:hover { background-color: rgba(33, 150, 243, 0.25); }
     </style>
 </head>
 <body>
@@ -113,7 +115,8 @@
         </div>
         <h2>Your Quest Route</h2>
         <div id="results-list">Loading...</div>
-        <button onclick="localStorage.removeItem('quest_results'); window.location.href='/'" class="btn btn-new-quest">&larr; Start New Quest</button>
+        <button onclick="saveRoute()" class="btn btn-save">Save Route</button>
+        <button onclick="localStorage.removeItem('quest_results'); window.location.href='/'" class="btn btn-new-quest">&larr; Delete & Start New Quest</button>
     </div>
 
     <div class="map-wrapper">
@@ -190,6 +193,37 @@
             listContainer.innerHTML = '<p>Error loading results data.</p>';
         }
     });
+
+    async function saveRoute() {
+        const userId = localStorage.getItem('user_id');
+        const storedData = localStorage.getItem('quest_results');
+        
+        if (!userId) {
+            alert("Please log in to save routes.");
+            return;
+        }
+        if (!storedData) return;
+
+        try {
+            const res = await fetch('http://127.0.0.1:8000/save-route', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    user_id: userId,
+                    route_data: JSON.parse(storedData)
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                window.location.href = '/saved-routes';
+            } else {
+                alert("Error saving route: " + (data.detail || "Unknown error"));
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Connection error while saving route.");
+        }
+    }
 </script>
 </body>
 </html>
