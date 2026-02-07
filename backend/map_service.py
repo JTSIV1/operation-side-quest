@@ -69,7 +69,7 @@ def fetch_places(lat: float, lng: float, radius: int, category: str) -> List[dic
         "key": GOOGLE_KEY
     }
 
-    res = requests.get(url, params=params)
+    res = requests.get(url, params=params, timeout=10)
     data = res.json()
 
     return data.get("results", [])

@@ -36,12 +36,12 @@ def get_mapbox_route(
         "geometries": "geojson" # useful for map visualization
     }
 
-    res = requests.get(url, params=params)
+    res = requests.get(url, params=params, timeout=15)
     data = res.json()
 
     # Fallback if API fails
     if "trips" not in data or not data["trips"]:
-        return places
+        return places, 0
 
     trip = data["trips"][0]
 

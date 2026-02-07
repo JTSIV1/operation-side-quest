@@ -35,7 +35,12 @@ def generate_quest(req: QuestRequest):
         raise HTTPException(status_code=500, detail=f"Error generating places: {e}")
 
     if not places:
-        return GenerateQuestResponse(requested=req.dict(), selected_places=[], ordered_places=[])
+        return GenerateQuestResponse(
+            requested=req.dict(),
+            selected_places=[],
+            ordered_places=[],
+            travel_time_minutes=0
+        )
 
     # 2) Map transport input to Mapbox mode
     transport = (req.transport or "walk").lower()
