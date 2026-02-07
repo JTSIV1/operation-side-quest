@@ -27,5 +27,6 @@ python frontend/app.py
 ## Run Backend
 
 ```bash
-fastapi dev backend/main.py
+cd backend
+uvicorn main:app --reload
 ```

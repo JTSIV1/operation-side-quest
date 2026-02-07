@@ -2,3 +2,4 @@ Flask
 fastapi[standard]
 googlemaps
 python-dotenv
+uvicorn
