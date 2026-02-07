@@ -50,7 +50,7 @@
         .branding {
             display: flex;
             align-items: center;
-            margin-bottom: 30px;
+            margin-bottom: 5px;
         }
         .branding img {
             height: 100px;
@@ -92,6 +92,21 @@
         
         .btn-path { border-color: #4CAF50; background-color: rgba(76, 175, 80, 0.1); width: 100%; }
         .btn-path:hover { background-color: rgba(76, 175, 80, 0.25); }
+
+        .btn-friends { border-color: #2196F3; background-color: rgba(33, 150, 243, 0.1); }
+        .btn-friends:hover { background-color: rgba(33, 150, 243, 0.25); }
+
+        .btn-leaderboard { border-color: #FFC107; background-color: rgba(255, 193, 7, 0.1); }
+        .btn-leaderboard:hover { background-color: rgba(255, 193, 7, 0.25); }
+
+        .btn-saved { border-color: #00BCD4; background-color: rgba(0, 188, 212, 0.1); width: 100%; }
+        .btn-saved:hover { background-color: rgba(0, 188, 212, 0.25); }
+
+        .btn-account { border-color: #9E9E9E; background-color: rgba(158, 158, 158, 0.1); }
+        .btn-account:hover { background-color: rgba(158, 158, 158, 0.25); }
+
+        .btn-signout { border-color: #f44336; background-color: rgba(244, 67, 54, 0.1); }
+        .btn-signout:hover { background-color: rgba(244, 67, 54, 0.25); }
 
         /* Chart Path View Styles */
         .toggle-row {
@@ -266,6 +281,23 @@
             animation: spin 1s linear infinite;
             margin: 0 auto 15px;
         }
+        .separator {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: #aaa;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 20px 0 15px 0;
+        }
+        .separator::before, .separator::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #555;
+        }
+        .separator::before { margin-right: 10px; }
+        .separator::after { margin-left: 10px; }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -294,6 +326,7 @@
             <img src="{{ url_for('static', filename='images/text.png') }}" alt="Operation Side-Quest">
         </div>
         <div id="widgets">
+            <div class="separator">Create Something New</div>
             <div class="button-row">
                 <button class="btn btn-city">New City</button>
                 <button class="btn btn-neighborhood">New Neighborhood</button>
@@ -304,6 +337,18 @@
             </div>
             <div class="button-row">
                 <button class="btn btn-path">Chart Your Own Path</button>
+            </div>
+            <div class="separator">Friends and Saved Routes</div>
+            <div class="button-row">
+                <button class="btn btn-friends">Friends</button>
+                <button class="btn btn-leaderboard">Leaderboard</button>
+            </div>
+            <div class="button-row">
+                <button class="btn btn-saved">Saved Routes</button>
+            </div>
+            <div class="button-row">
+                <button class="btn btn-account">Account</button>
+                <button id="btn-signout" class="btn btn-signout">Sign Out</button>
             </div>
         </div>
         <div id="chart-path-view" style="display: none;">
@@ -399,7 +444,6 @@
             </div>
             <button class="btn btn-submit" id="btn-generate">Generate Route</button>
         </div>
-        <button id="btn-signout" class="btn" style="margin-top: auto; flex: 0 auto; background-color: #cf6679; border-color: #b00020; color: white;">Sign Out</button>
     </div>
     <div class="map-wrapper">
         <div id="map"></div>
@@ -632,6 +676,32 @@
 
         // Call Dummy API
         fetch('http://127.0.0.1:8000/generate-quest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Route generated:', data);
+            // window.location.href = '/result'; // Forward to new page
+            localStorage.setItem('quest_results', JSON.stringify(data));
+            window.location.href = '/results';
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            document.getElementById('loading-overlay').style.display = 'none';
+            alert('An error occurred while generating the route.');
+        });
+    });
+
+    // Handle Sign Out
+    document.getElementById('btn-signout').addEventListener('click', function() {
+        localStorage.removeItem('user_id');
+        window.location.href = "/login";
+    });
+</script>
+</body>
+</html>
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)

@@ -48,6 +48,10 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+class AddFriendRequest(BaseModel):
+    user_id: str
+    friend_email: str
+
 
 @app.post("/signup")
 def signup(req: SignupRequest):
@@ -120,3 +124,31 @@ def generate_quest(req: QuestRequest):
         ordered_places=ordered,
         travel_time_minutes=travel_time_minutes
     )
+
+
+@app.post("/add-friend")
+def add_friend(req: AddFriendRequest):
+    result = db.add_friend(req.user_id, req.friend_email)
+    if result == "Success":
+        return {"message": "Friend request sent"}
+    elif result == "User not found":
+        raise HTTPException(status_code=404, detail="User with this email not found.")
+    elif result == "Cannot add yourself":
+        raise HTTPException(status_code=400, detail="You cannot add yourself as a friend.")
+    elif result == "Request already sent":
+        raise HTTPException(status_code=400, detail="Friend request already sent or you are already friends.")
+    else:
+        raise HTTPException(status_code=500, detail=f"Database error: {result}")
+
+
+@app.get("/friends/{user_id}")
+def get_friends(user_id: str):
+    return db.get_friends(user_id)
+
+@app.get("/friends/requests/incoming/{user_id}")
+def get_incoming_requests(user_id: str):
+    return db.get_incoming_requests(user_id)
+
+@app.get("/friends/requests/pending/{user_id}")
+def get_pending_requests(user_id: str):
+    return db.get_pending_requests(user_id)
