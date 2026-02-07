@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 import json
+from datetime import datetime
 
 from inputparams import QuestRequest
 import map_service
@@ -244,3 +245,73 @@ def get_incoming_requests(user_id: str):
 @app.get("/friends/requests/pending/{user_id}")
 def get_pending_requests(user_id: str):
     return db.get_pending_requests(user_id)
+
+@app.get("/leaderboard/{user_id}")
+def get_leaderboard(user_id: str):
+    # Get current user
+    user = db.get_user(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get friends
+    friends = db.get_friends(user_id)
+    
+    # Combine user and friends
+    participants = [user] + friends
+    
+    leaderboard_data = []
+    locations = []
+    now = datetime.now()
+    
+    for p in participants:
+        routes = db.get_user_routes(p["id"])
+        all_time_points = 0
+        month_points = 0
+        
+        for r in routes:
+            if r["completed"]:
+                # Points calculation: 150 points per stop
+                points = (r["num_stops"] or 0) * 150
+                all_time_points += points
+                
+                # Extract locations for map
+                r_data = r["route_data"]
+                if r_data and isinstance(r_data, str):
+                    try:
+                        r_data = json.loads(r_data)
+                    except:
+                        r_data = {}
+                
+                if isinstance(r_data, dict):
+                    places = r_data.get("ordered_places") or r_data.get("selected_places") or []
+                    for place in places:
+                        locations.append({
+                            "lat": place["lat"],
+                            "lng": place["lng"],
+                            "place_name": place["name"],
+                            "visitor_name": f"{p['first_name']} {p['last_name']}",
+                            "visitor_id": p["id"]
+                        })
+
+                if r["time_completed"]:
+                    try:
+                        dt = datetime.fromisoformat(r["time_completed"])
+                        if dt.year == now.year and dt.month == now.month:
+                            month_points += points
+                    except ValueError:
+                        pass
+        
+        leaderboard_data.append({
+            "id": p["id"],
+            "username": p["username"],
+            "first_name": p["first_name"],
+            "last_name": p["last_name"],
+            "all_time": all_time_points,
+            "month": month_points
+        })
+    
+    return {
+        "all_time": sorted(leaderboard_data, key=lambda x: x["all_time"], reverse=True),
+        "month": sorted(leaderboard_data, key=lambda x: x["month"], reverse=True),
+        "locations": locations
+    }
