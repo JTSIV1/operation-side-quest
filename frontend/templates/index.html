@@ -260,11 +260,23 @@
         </div>
         <div id="chart-path-view" style="display: none;">
             <div style="display: flex; align-items: center; margin-bottom: 20px;">
-                <button id="btn-back" style="background: none; border: none; color: #e0e0e0; font-size: 1.5rem; cursor: pointer; padding: 0; margin-right: 15px;">&larr;</button>
+                <button id="btn-back" aria-label="Back to main menu" title="Back to main menu" style="background: none; border: none; color: #e0e0e0; font-size: 1.5rem; cursor: pointer; padding: 0; margin-right: 15px;">&larr;</button>
                 <h2 style="margin: 0;">Customize</h2>
             </div>
-            <div class="toggle-row transport-row">
+            <div class="toggle-row">
+                <span class="toggle-label">When to begin:</span>
                 <input type="datetime-local" class="date-input" id="datetime-input">
+            </div>
+            <div class="toggle-row transport-row">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span class="toggle-label">Budget</span>
+                    <select id="budget-select" class="date-input">
+                        <option value="1">$</option>
+                        <option value="2">$$</option>
+                        <option value="3">$$$</option>
+                        <option value="4">$$$$</option>
+                    </select>
+                </div>
                 <div class="transport-group">
                     <span class="toggle-label">Walking</span>
                     <label class="switch">
@@ -289,7 +301,7 @@
                 <span class="toggle-label">Nature & Parks</span>
                 <input type="checkbox" class="square-toggle" data-category="nature/park">
             </div>
-            <div class="toggle-row collapsible-header" id="food-dining-header">
+            <div class="toggle-row collapsible-header" id="food-dining-header" role="button" tabindex="0" aria-expanded="false" aria-controls="food-dining-content">
                 <span class="toggle-label">Food & Dining</span>
                 <span class="arrow-icon">&#9660;</span>
             </div>
@@ -357,6 +369,11 @@
     // Add Search Bar (Geocoder)
     L.Control.geocoder().addTo(map);
 
+    // Set default datetime to current time
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('datetime-input').value = now.toISOString().slice(0, 16);
+
     // Handle Chart Your Own Path Button
     document.querySelector('.btn-path').addEventListener('click', function() {
         document.getElementById('widgets').style.display = 'none';
@@ -387,10 +404,20 @@
     const foodContent = document.getElementById('food-dining-content');
     const foodArrow = foodHeader.querySelector('.arrow-icon');
 
-    foodHeader.addEventListener('click', function() {
+    function toggleFoodDining() {
         const isHidden = foodContent.style.display === 'none';
         foodContent.style.display = isHidden ? 'block' : 'none';
         foodArrow.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+        foodHeader.setAttribute('aria-expanded', isHidden);
+    }
+
+    foodHeader.addEventListener('click', toggleFoodDining);
+
+    foodHeader.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleFoodDining();
+        }
     });
 
     // Handle Generate Route
@@ -414,6 +441,7 @@
             radius: parseFloat(radius.toFixed(2)),
             driving: document.getElementById('transport-mode-toggle').checked,
             popularity: parseInt(document.getElementById('popularity-slider').value),
+            budget: parseInt(document.getElementById('budget-select').value),
             datetime: document.getElementById('datetime-input').value ? new Date(document.getElementById('datetime-input').value).toISOString() : new Date().toISOString(),
             route_min: parseInt(document.getElementById('duration-slider').value)
         };
