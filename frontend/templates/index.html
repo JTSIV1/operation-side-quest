@@ -261,8 +261,11 @@
         <div id="chart-path-view" style="display: none;">
             <div style="display: flex; align-items: center; margin-bottom: 20px;">
                 <button id="btn-back" aria-label="Back to main menu" title="Back to main menu" style="background: none; border: none; color: #e0e0e0; font-size: 1.5rem; cursor: pointer; padding: 0; margin-right: 15px;">&larr;</button>
-                <h2 style="margin: 0;">Customize</h2>
+                <h2 id="view-title" style="margin: 0;">Customize</h2>
             </div>
+            <p id="view-description" style="display: none; margin-bottom: 15px; color: #ccc;">
+                Generate a curated tour of the city's highlights.
+            </p>
             <div class="toggle-row">
                 <span class="toggle-label">When to begin:</span>
                 <input type="datetime-local" class="date-input" id="datetime-input">
@@ -293,6 +296,11 @@
                     <span id="duration-display" style="width: 90px; text-align: right;">1 hr 0 min</span>
                 </div>
             </div>
+            <div class="toggle-row collapsible-header" id="advanced-options-header" style="display: none;" role="button" tabindex="0" aria-expanded="false" aria-controls="advanced-options-wrapper">
+                <span class="toggle-label">Advanced Options</span>
+                <span class="arrow-icon">&#9660;</span>
+            </div>
+            <div id="advanced-options-wrapper">
             <div class="toggle-row">
                 <span class="toggle-label">Historical Sites</span>
                 <input type="checkbox" class="square-toggle" data-category="historical">
@@ -340,6 +348,7 @@
                 <input type="range" min="1" max="5" value="3" step="1" class="range-slider" id="popularity-slider">
                 <span style="font-size: 0.9rem;">Only Best Rated</span>
             </div>
+            </div>
             <button class="btn btn-submit" id="btn-generate">Generate Route</button>
         </div>
     </div>
@@ -374,10 +383,41 @@
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     document.getElementById('datetime-input').value = now.toISOString().slice(0, 16);
 
+    // Handle New City Button
+    document.querySelector('.btn-city').addEventListener('click', function() {
+        document.getElementById('widgets').style.display = 'none';
+        document.getElementById('chart-path-view').style.display = 'block';
+        
+        // UI Updates for New City
+        document.getElementById('view-title').textContent = 'New City';
+        document.getElementById('view-description').style.display = 'block';
+        document.getElementById('advanced-options-header').style.display = 'flex';
+        document.getElementById('advanced-options-wrapper').style.display = 'none';
+        document.querySelector('#advanced-options-header .arrow-icon').style.transform = 'rotate(0deg)';
+        document.getElementById('advanced-options-header').setAttribute('aria-expanded', 'false');
+
+        // Set Defaults for New City
+        document.querySelectorAll('.square-toggle').forEach(cb => cb.checked = false);
+        ['historical', 'art', 'museums'].forEach(cat => {
+            const cb = document.querySelector(`.square-toggle[data-category="${cat}"]`);
+            if (cb) cb.checked = true;
+        });
+        document.getElementById('popularity-slider').value = 5;
+        document.getElementById('budget-select').value = 3;
+        document.getElementById('duration-slider').value = 180;
+        updateDuration();
+    });
+
     // Handle Chart Your Own Path Button
     document.querySelector('.btn-path').addEventListener('click', function() {
         document.getElementById('widgets').style.display = 'none';
         document.getElementById('chart-path-view').style.display = 'block';
+
+        // UI Updates for Custom Path
+        document.getElementById('view-title').textContent = 'Customize';
+        document.getElementById('view-description').style.display = 'none';
+        document.getElementById('advanced-options-header').style.display = 'none';
+        document.getElementById('advanced-options-wrapper').style.display = 'block';
     });
 
     // Handle Duration Slider
@@ -418,6 +458,23 @@
             e.preventDefault();
             toggleFoodDining();
         }
+    });
+
+    // Handle Advanced Options Collapsible
+    const advHeader = document.getElementById('advanced-options-header');
+    const advContent = document.getElementById('advanced-options-wrapper');
+    const advArrow = advHeader.querySelector('.arrow-icon');
+
+    function toggleAdvanced() {
+        const isHidden = advContent.style.display === 'none';
+        advContent.style.display = isHidden ? 'block' : 'none';
+        advArrow.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+        advHeader.setAttribute('aria-expanded', isHidden);
+    }
+
+    advHeader.addEventListener('click', toggleAdvanced);
+    advHeader.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleAdvanced(); }
     });
 
     // Handle Generate Route
