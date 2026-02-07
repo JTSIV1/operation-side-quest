@@ -102,7 +102,8 @@
         .place-rating { color: #f39c12; font-weight: bold; }
 
         /* Action Buttons */
-        .actions { margin-top: 10px; display: flex; gap: 5px; }
+        .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+        .actions { display: flex; gap: 5px; }
         .btn-action { padding: 5px 10px; font-size: 0.8em; cursor: pointer; border-radius: 4px; border: 1px solid #666; background: #444; color: #fff; z-index: 10; position: relative; }
         .btn-action:hover { background: #555; }
         .btn-delete { border-color: #f44336; color: #f44336; background: rgba(244, 67, 54, 0.1); }
@@ -260,18 +261,22 @@
 
                     const sharedLabel = !route.is_owner ? `<div class="shared-label">Shared with you by ${route.owner_name}</div>` : '';
 
+                    const routeName = route.name || `Route #${routes.length - idx}`;
+
                     const div = document.createElement('div');
                     div.className = 'route-card';
                     div.innerHTML = `
                         ${sharedLabel}
-                        <div class="route-title">Route #${routes.length - idx}</div>
+                        <div class="route-title">${routeName}</div>
                         <div class="route-info">${dateStr}</div>
                         <div class="route-info">${route.num_stops} Stops</div>
-                        <span class="status-badge ${route.completed ? 'status-complete' : 'status-incomplete'}">
-                            ${route.completed ? 'Completed' : 'Incomplete'}
-                        </span>
-                        <div class="actions" onclick="event.stopPropagation()">
-                            ${actionButtons}
+                        <div class="card-footer">
+                            <span class="status-badge ${route.completed ? 'status-complete' : 'status-incomplete'}">
+                                ${route.completed ? 'Completed' : 'Incomplete'}
+                            </span>
+                            <div class="actions" onclick="event.stopPropagation()">
+                                ${actionButtons}
+                            </div>
                         </div>
                     `;
                     div.onclick = () => showRoute(route);

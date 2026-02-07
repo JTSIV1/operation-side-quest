@@ -60,6 +60,7 @@ class RemoveFriendRequest(BaseModel):
 class SaveRouteRequest(BaseModel):
     user_id: str
     route_data: dict
+    name: str
 
 class DeleteRouteRequest(BaseModel):
     user_id: str
@@ -157,7 +158,7 @@ def save_route(req: SaveRouteRequest):
     places = data.get("ordered_places") or data.get("selected_places") or []
     num_stops = len(places)
     
-    route_id = db.create_route(req.user_id, json.dumps(data), num_stops)
+    route_id = db.create_route(req.user_id, json.dumps(data), num_stops, req.name)
     if not route_id:
         raise HTTPException(status_code=500, detail="Failed to save route")
     

@@ -33,6 +33,7 @@ def init_db():
             completed INTEGER DEFAULT 0,
             time_completed TEXT,
             route_data TEXT,
+            name TEXT,
             FOREIGN KEY(owner_id) REFERENCES users(id)
         )
     """)
@@ -45,6 +46,11 @@ def init_db():
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
     """)
+    # Migration: Add name column if it doesn't exist (for existing databases)
+    try:
+        cursor.execute("ALTER TABLE routes ADD COLUMN name TEXT")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     conn.close()
 
@@ -157,16 +163,16 @@ def get_incoming_requests(user_id):
     """
     return _get_users_from_query(query, (user_id, user_id))
 
-def create_route(owner_id, route_data_json, num_stops):
+def create_route(owner_id, route_data_json, num_stops, name):
     """Creates a new route entry."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     route_id = str(uuid.uuid4())
     try:
         cursor.execute("""
-            INSERT INTO routes (route_id, owner_id, num_stops, completed, time_completed, route_data)
-            VALUES (?, ?, ?, 0, NULL, ?)
-        """, (route_id, owner_id, num_stops, route_data_json))
+            INSERT INTO routes (route_id, owner_id, num_stops, completed, time_completed, route_data, name)
+            VALUES (?, ?, ?, 0, NULL, ?, ?)
+        """, (route_id, owner_id, num_stops, route_data_json, name))
         conn.commit()
         return route_id
     except Exception as e:
@@ -179,7 +185,7 @@ def get_user_routes(user_id):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT DISTINCT r.route_id, r.num_stops, r.completed, r.time_completed, r.route_data, r.owner_id, u.first_name, u.last_name
+        SELECT DISTINCT r.route_id, r.num_stops, r.completed, r.time_completed, r.route_data, r.owner_id, u.first_name, u.last_name, r.name
         FROM routes r
         JOIN users u ON r.owner_id = u.id
         LEFT JOIN route_participants rp ON r.route_id = rp.route_id
@@ -198,7 +204,8 @@ def get_user_routes(user_id):
             "time_completed": r[3],
             "route_data": r[4],
             "is_owner": (r[5] == user_id),
-            "owner_name": f"{r[6]} {r[7]}"
+            "owner_name": f"{r[6]} {r[7]}",
+            "name": r[8] if len(r) > 8 and r[8] else None
         })
     return routes
 
