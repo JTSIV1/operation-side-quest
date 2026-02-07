@@ -22,5 +22,9 @@ def friends():
 def saved_routes():
     return render_template("saved_routes.html")
 
+@app.route("/account")
+def account():
+    return render_template("account.html")
+
 if __name__ == "__main__":
     app.run(debug=True)

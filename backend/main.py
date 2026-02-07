@@ -78,6 +78,12 @@ class RemoveRouteParticipantRequest(BaseModel):
     route_id: str
     user_id: str
 
+class UpdateUserRequest(BaseModel):
+    user_id: str
+    username: str
+    first_name: str
+    last_name: str
+
 
 @app.post("/signup")
 def signup(req: SignupRequest):
@@ -244,3 +250,20 @@ def get_incoming_requests(user_id: str):
 @app.get("/friends/requests/pending/{user_id}")
 def get_pending_requests(user_id: str):
     return db.get_pending_requests(user_id)
+
+@app.get("/user/{user_id}")
+def get_user_endpoint(user_id: str):
+    user = db.get_user(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@app.post("/update-user")
+def update_user_endpoint(req: UpdateUserRequest):
+    res = db.update_user(req.user_id, req.username, req.first_name, req.last_name)
+    if res == "Success":
+        return {"message": "Profile updated"}
+    elif res == "Username already taken":
+        raise HTTPException(status_code=400, detail=res)
+    else:
+        raise HTTPException(status_code=500, detail=res)
