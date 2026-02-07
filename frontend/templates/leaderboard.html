@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard - Operation Side-Quest</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: sans-serif;
+            background-color: #2A3537;
+            color: #e0e0e0;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+        .sidebar {
+            width: 33.33%;
+            background-color: #2A3537;
+            padding: 20px;
+            box-sizing: border-box;
+            border-right: 1px solid #444;
+            color: #ffffff;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .branding {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .branding img {
+            height: 80px;
+            width: auto;
+        }
+        .btn-back {
+            background: none; border: none; color: #e0e0e0; font-size: 2rem; cursor: pointer; padding: 0; margin-right: 15px; line-height: 1;
+        }
+        .btn-back:hover { color: #fff; }
+        
+        h2 { margin-top: 0; color: #e0e0e0; margin-bottom: 20px; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #444;
+        }
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: bold;
+            color: #aaa;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+        .tab:hover { color: #fff; background-color: rgba(255,255,255,0.05); }
+        .tab.active {
+            color: #FFC107;
+            border-bottom: 3px solid #FFC107;
+        }
+
+        /* Leaderboard List */
+        .rank-card {
+            background: #3A4547;
+            border: 1px solid #666;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            transition: transform 0.2s;
+        }
+        .rank-card:hover {
+            transform: translateX(5px);
+            border-color: #FFC107;
+        }
+        .rank-num {
+            font-size: 1.5rem;
+            font-weight: bold;
+            width: 40px;
+            text-align: center;
+            color: #FFC107;
+            margin-right: 15px;
+        }
+        .user-info { flex: 1; }
+        .user-name { font-weight: bold; font-size: 1.1rem; color: #fff; }
+        .user-points { font-weight: bold; color: #4CAF50; font-size: 1.1rem; }
+        .points-label { font-size: 0.8rem; color: #aaa; font-weight: normal; }
+
+        .map-wrapper {
+            width: 66.67%;
+            height: 100%;
+            position: relative;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+        .leaflet-tile-pane {
+            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="branding">
+                <button class="btn-back" onclick="window.location.href='/'" title="Back to Home">&larr;</button>
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" style="margin-right: 10px;">
+                <img src="{{ url_for('static', filename='images/text.png') }}" alt="Operation Side-Quest" style="height: 40px; width: auto;">
+            </div>
+            
+            <h2>Leaderboard</h2>
+
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('all_time')">All Time</div>
+                <div class="tab" onclick="switchTab('month')">This Month</div>
+            </div>
+
+            <div id="leaderboard-list">Loading...</div>
+        </div>
+        <div class="map-wrapper">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize Map
+        const map = L.map('map').setView([40.4432, -79.9428], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        const API_URL = "http://127.0.0.1:8000";
+        const userId = localStorage.getItem('user_id');
+        if (!userId) window.location.href = "/login";
+
+        let leaderboardData = { all_time: [], month: [] };
+        let currentTab = 'all_time';
+
+        async function loadLeaderboard() {
+            try {
+                const res = await fetch(`${API_URL}/leaderboard/${userId}`);
+                const data = await res.json();
+                leaderboardData = data;
+                renderList();
+                renderMap(data.locations);
+            } catch (e) {
+                console.error(e);
+                document.getElementById('leaderboard-list').innerHTML = '<p>Error loading leaderboard.</p>';
+            }
+        }
+
+        function renderMap(locations) {
+            if (!locations || locations.length === 0) return;
+            
+            const markers = [];
+            locations.forEach(loc => {
+                const isMe = loc.visitor_id === userId;
+                const color = isMe ? '#2196F3' : '#f44336'; // Blue for me, Red for friends
+                
+                const marker = L.circleMarker([loc.lat, loc.lng], {
+                    radius: 8,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+                
+                marker.bindPopup(`<b>${loc.place_name}</b><br>Visited by: ${loc.visitor_name}`);
+                markers.push(marker);
+            });
+            
+            if (markers.length > 0) {
+                const group = L.featureGroup(markers);
+                map.fitBounds(group.getBounds(), { padding: [50, 50] });
+            }
+        }
+
+        function renderList() {
+            const container = document.getElementById('leaderboard-list');
+            const data = leaderboardData[currentTab];
+            
+            container.innerHTML = '';
+            if (!data || data.length === 0) {
+                container.innerHTML = '<p>No data available.</p>';
+                return;
+            }
+
+            data.forEach((user, index) => {
+                const points = currentTab === 'all_time' ? user.all_time : user.month;
+                const div = document.createElement('div');
+                div.className = 'rank-card';
+                div.innerHTML = `
+                    <div class="rank-num">#${index + 1}</div>
+                    <div class="user-info">
+                        <div class="user-name">${user.first_name} ${user.last_name}</div>
+                        <div style="font-size: 0.85em; color: #aaa;">@${user.username}</div>
+                    </div>
+                    <div class="user-points">${points} <span class="points-label">pts</span></div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            renderList();
+        }
+
+        loadLeaderboard();
+    </script>
+</body>
+</html>

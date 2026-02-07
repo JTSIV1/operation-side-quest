@@ -137,15 +137,27 @@
         .btn-modal-close:hover { background: #555; }
 
         .shared-label {
-            position: absolute;
-            top: 10px;
-            right: 10px;
+            display: inline-block;
+            margin-bottom: 5px;
             font-size: 0.75em;
             color: #ccc;
             background: rgba(0,0,0,0.4);
             padding: 2px 8px;
             border-radius: 10px;
             pointer-events: none;
+        }
+
+        .points-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 0.85em;
+            color: #FFC107;
+            background: rgba(255, 193, 7, 0.15);
+            border: 1px solid #FFC107;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -262,10 +274,12 @@
                     const sharedLabel = !route.is_owner ? `<div class="shared-label">Shared with you by ${route.owner_name}</div>` : '';
 
                     const routeName = route.name || `Route #${routes.length - idx}`;
+                    const points = (route.num_stops || 0) * 150;
 
                     const div = document.createElement('div');
                     div.className = 'route-card';
                     div.innerHTML = `
+                        <div class="points-badge">${points} pts</div>
                         ${sharedLabel}
                         <div class="route-title">${routeName}</div>
                         <div class="route-info">${dateStr}</div>
